@@ -13,14 +13,20 @@ import (
 )
 
 type watchDescriptor struct {
-	Path            string
-	Mask            int
+	// The path of this descriptor
+	Path string
+	// This descriptor's inotify watch mask
+	Mask int
+	// This descriptor's inotify watch descriptor
 	WatchDescriptor int
 }
 
 type FsEvent struct {
-	Path       string
-	RawEvent   *unix.InotifyEvent
+	// The path of the event
+	Path string
+	// The raw inotify event
+	RawEvent *unix.InotifyEvent
+	// The actual inotify watch descriptor related to this event
 	Descriptor *watchDescriptor
 }
 
@@ -66,25 +72,27 @@ const (
 )
 
 var (
-	ErrWatchNotCreated    = errors.New("Watch descriptor could not be created")
-	ErrWatchAlreadyExists = errors.New("Watch already exists")
-	ErrWatchNotStart      = errors.New("Watch could not be started")
-	ErrWatchNotStopped    = errors.New("Watch could not be stopped")
-	ErrWatchNotRemoved    = errors.New("Watch could not be removed")
-	ErrIncompleteRead     = errors.New("Incomplete even read")
-	ErrReadError          = errors.New("There was an error reading an event")
-	ErrDescriptorNotFound = errors.New("Descriptor for event not found")
+	// All the errors returned by fsevents
+	// Should probably provide a more situationally descriptive message along with it
+	ErrWatchNotCreated    = errors.New("watch descriptor could not be created")
+	ErrWatchAlreadyExists = errors.New("watch already exists")
+	ErrWatchNotStart      = errors.New("watch could not be started")
+	ErrWatchNotStopped    = errors.New("watch could not be stopped")
+	ErrWatchNotRemoved    = errors.New("watch could not be removed")
+	ErrIncompleteRead     = errors.New("incomplete event read")
+	ErrReadError          = errors.New("error reading an event")
+	ErrDescriptorNotFound = errors.New("descriptor for event not found")
 )
 
-func newWatchDescriptor(dirPath string, mask int) (*watchDescriptor, error) {
+func newWatchDescriptor(dirPath string, mask int) *watchDescriptor {
 	return &watchDescriptor{
 		Path:            dirPath,
 		WatchDescriptor: -1,
 		Mask:            mask,
-	}, nil
+	}
 }
 
-//DescriptorExists returns true if a WatchDescriptor exists in w.Descriptors, false otherwise
+// DescriptorExists returns true if a WatchDescriptor exists in w.Descriptors, false otherwise
 func (w *Watcher) DescriptorExists(watchPath string) bool {
 	if _, exists := w.Descriptors[watchPath]; exists {
 		return true
@@ -92,6 +100,7 @@ func (w *Watcher) DescriptorExists(watchPath string) bool {
 	return false
 }
 
+// AddDescriptor() will add a descriptor to Watcher w. The descriptor is not started
 func (w *Watcher) AddDescriptor(dirPath string, flag int) error {
 	if w.DescriptorExists(dirPath) == true {
 		return ErrWatchAlreadyExists
@@ -102,18 +111,15 @@ func (w *Watcher) AddDescriptor(dirPath string, flag int) error {
 	} else {
 		inotifymask = flag
 	}
-	new, err := newWatchDescriptor(dirPath, inotifymask)
-	if err != nil {
-		return err
-	}
 
 	w.Lock()
-	w.Descriptors[dirPath] = new
+	w.Descriptors[dirPath] = newWatchDescriptor(dirPath, inotifymask)
 	w.Unlock()
 
 	return nil
 }
 
+// Recursive add will add the directory at rootPath, and all directories below it, using the flags provided in flag
 func (w *Watcher) RecursiveAdd(rootPath string, flag int) error {
 	dirStat, err := ioutil.ReadDir(rootPath)
 	if err != nil {
@@ -127,6 +133,8 @@ func (w *Watcher) RecursiveAdd(rootPath string, flag int) error {
 	return nil
 }
 
+// NewWatcher allocates a new watcher at path rootPath, with the default mask defaultMask
+// This function initializes inotify, so it must be run first
 func NewWatcher(rootPath string, defaultMask int) (*Watcher, error) {
 	// func InotifyInit() (fd int, err error)
 	fd, err := unix.InotifyInit()
@@ -154,7 +162,7 @@ func (d *watchDescriptor) start(fd int) error {
 	return err
 }
 
-//StartAll() Start all inotify watches described by this Watcher
+// StartAll() Start all inotify watches described by this Watcher
 func (w *Watcher) StartAll() error {
 	w.Lock()
 	defer w.Unlock()
@@ -166,6 +174,8 @@ func (w *Watcher) StartAll() error {
 	return nil
 }
 
+// getWatchDesccriptor() searches a Watcher instance for a watch descriptor.
+// Searches by inotify watch descriptor
 func (w *Watcher) getWatchDescriptor(wd int) *watchDescriptor {
 	w.Lock()
 	defer w.Unlock()
@@ -206,13 +216,13 @@ func (w *Watcher) Watch() {
 
 			eventPath := descriptor.Path
 			if rawEvent.Len > 0 {
-				//Grab the even name and make it a path
+				// Grab the event name and make it a path
 				bytes := (*[unix.PathMax]byte)(unsafe.Pointer(&buffer[offset+unix.SizeofInotifyEvent]))
 				eventPath += strings.TrimRight(string(bytes[0:rawEvent.Len]), "\000")
 				eventPath = path.Clean(eventPath)
 			}
 
-			//Make our event and send if over the channel
+			// Make our event and send if over the channel
 			event := &FsEvent{
 				Path:       eventPath,
 				Descriptor: descriptor,

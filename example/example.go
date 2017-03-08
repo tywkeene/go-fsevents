@@ -2,6 +2,7 @@ package main
 
 import (
 	"log"
+	"os"
 
 	"github.com/tywkeene/go-fsevents"
 )
@@ -30,10 +31,13 @@ func handleEvents(watcher *fsevents.Watcher) {
 }
 
 func main() {
-	w, err := fsevents.NewWatcher("/home/null/tmp/", fsevents.Delete|fsevents.Create|fsevents.IsDir)
+	if os.Args[1] == "" {
+		panic("Must specify directory to watch")
+	}
+	watchDir := os.Args[1]
+	w, err := fsevents.NewWatcher(watchDir, fsevents.Delete|fsevents.Create|fsevents.IsDir)
 	if err != nil {
 		panic(err)
 	}
-	w.AddDescriptor("/home/null/var/", fsevents.UseWatcherFlags)
 	handleEvents(w)
 }

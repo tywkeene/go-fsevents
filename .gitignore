@@ -2,3 +2,4 @@ test
 *.swp
 *.swo
 .vim-bookmarks
+example/example
