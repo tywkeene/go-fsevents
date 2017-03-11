@@ -19,3 +19,6 @@ Forgot to add mutex locks in ListDescriptors() and RemoveDescriptor()
 ## Sat 11 Mar 2017 01:31:32 PM MST Version: 0.0.6
 Forgot to add mutex lock to DescriptorExists()
 Fix comment typo
+
+## Sat 11 Mar 2017 03:34:30 PM MST Version: 0.0.7
+Rename getWatchDescriptor() to GetDescriptorByWatch()

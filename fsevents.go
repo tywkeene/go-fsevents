@@ -227,7 +227,7 @@ func (w *Watcher) StartAll() error {
 
 // getWatchDesccriptor() searches a Watcher instance for a watch descriptor.
 // Searches by inotify watch descriptor
-func (w *Watcher) getWatchDescriptor(wd int) *watchDescriptor {
+func (w *Watcher) GetDescriptorByWatch(wd int) *watchDescriptor {
 	w.Lock()
 	defer w.Unlock()
 	for _, d := range w.Descriptors {
@@ -258,7 +258,7 @@ func (w *Watcher) Watch() {
 		var descriptor *watchDescriptor
 		for offset <= uint32(bytesRead-unix.SizeofInotifyEvent) {
 			rawEvent = (*unix.InotifyEvent)(unsafe.Pointer(&buffer[offset]))
-			descriptor = w.getWatchDescriptor(int(rawEvent.Wd))
+			descriptor = w.GetDescriptorByWatch(int(rawEvent.Wd))
 
 			if descriptor == nil {
 				w.Errors <- ErrDescriptorNotFound
