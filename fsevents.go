@@ -250,6 +250,17 @@ func (w *Watcher) StartAll() error {
 	return nil
 }
 
+// StopAll() Stop all running watch descriptors
+func (w *Watcher) StopAll() {
+	w.Lock()
+	defer w.Unlock()
+	for _, d := range w.Descriptors {
+		if d.Running == true {
+			d.Stop(w.FileDescriptor)
+		}
+	}
+}
+
 // GetDesccriptorByWatch() searches a Watcher instance for a watch descriptor.
 // Searches by inotify watch descriptor
 func (w *Watcher) GetDescriptorByWatch(wd int) *WatchDescriptor {

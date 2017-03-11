@@ -38,3 +38,6 @@ Added d.Running to check a descriptor's status
 
 Added status checks to d.Stop() and d.Start()
 
+## Sat 11 Mar 2017 04:08:11 PM MST Version: 0.0.10
+Added w.StopAll() to stop all currently running WatchDescriptors
+
