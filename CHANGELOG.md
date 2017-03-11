@@ -15,3 +15,7 @@ Update example to showcase the proper use of these functions
 
 ## Fri 10 Mar 2017 09:06:36 PM MST Version: 0.0.5
 Forgot to add mutex locks in ListDescriptors() and RemoveDescriptor()
+
+## Sat 11 Mar 2017 01:31:32 PM MST Version: 0.0.6
+Forgot to add mutex lock to DescriptorExists()
+Fix comment typo

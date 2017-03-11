@@ -43,7 +43,7 @@ type Watcher struct {
 	RootPath string
 	// The main inotify descriptor
 	FileDescriptor int
-	// Default masked is applied to watches in AddWatch if no inotify flags are specified
+	// Default mask is applied to watches in AddWatch if no inotify flags are specified
 	DefaultMask int
 	// Watch descriptors in this watch key: watch path -> value: watchDescriptor
 	Descriptors map[string]*watchDescriptor
@@ -107,6 +107,8 @@ func (d *watchDescriptor) start(fd int) error {
 
 // DescriptorExists returns true if a WatchDescriptor exists in w.Descriptors, false otherwise
 func (w *Watcher) DescriptorExists(watchPath string) bool {
+	w.Lock()
+	defer w.Unlock()
 	if _, exists := w.Descriptors[watchPath]; exists {
 		return true
 	}
