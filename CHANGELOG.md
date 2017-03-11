@@ -29,3 +29,12 @@ Rename getWatchDescriptor() to GetDescriptorByWatch()
 
 ## Sat 11 Mar 2017 03:37:41 PM MST Version: 0.0.8
 Added GetDescriptorByPath()
+
+## Sat 11 Mar 2017 03:49:17 PM MST Version: 0.0.9
+
+Added Stop() for stopping running watch descriptors
+
+Added d.Running to check a descriptor's status
+
+Added status checks to d.Stop() and d.Start()
+
