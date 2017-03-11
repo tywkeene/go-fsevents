@@ -238,6 +238,8 @@ func (w *Watcher) GetDescriptorByWatch(wd int) *watchDescriptor {
 	return nil
 }
 
+// GetDescriptorByPath searches a Watcher instance for a watch descriptor.
+// Searches by watchDescriptor's path
 func (w *Watcher) GetDescriptorByPath(watchPath string) *watchDescriptor {
 	w.Lock()
 	defer w.Unlock()
