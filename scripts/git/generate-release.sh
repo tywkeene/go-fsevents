@@ -47,6 +47,10 @@ function usage(){
     printf "Usage: $0 -M [major] -m [minor] -p [patch] -h [print this message]\n"
 }
 
+function add_changes(){
+    git add ./VERSION ./CHANGELOG.md
+}
+
 if [ -z "$1" ]; then
     usage
     exit -1
@@ -58,14 +62,17 @@ while getopts "hmMp" opt; do
             ;;
         m) bump_minor
             generate_changelog
+            add_changes
             exit 0
             ;;
         M) bump_major
             generate_changelog
+            add_changes
             exit 0
             ;;
         p) bump_patch
             generate_changelog
+            add_changes
             exit 0
             ;;
     esac
