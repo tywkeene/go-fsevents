@@ -116,6 +116,8 @@ func (w *Watcher) DescriptorExists(watchPath string) bool {
 // ListDescriptors() Lists all currently active watchDescriptors
 func (w *Watcher) ListDescriptors() []string {
 	list := make([]string, len(w.Descriptors))
+	w.Lock()
+	defer w.Unlock()
 	for path, _ := range w.Descriptors {
 		list = append(list, path)
 	}
@@ -128,6 +130,8 @@ func (w *Watcher) RemoveDescriptor(path string) error {
 	if w.DescriptorExists(path) == false {
 		return ErrWatchNotExist
 	}
+	w.Lock()
+	defer w.Unlock()
 	descriptor := w.Descriptors[path]
 	unix.InotifyRmWatch(w.FileDescriptor, uint32(descriptor.WatchDescriptor))
 	delete(w.Descriptors, path)

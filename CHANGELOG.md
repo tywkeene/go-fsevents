@@ -12,3 +12,6 @@ Refactor and cleanup
 ## Fri 10 Mar 2017 08:29:10 PM MST Version: 0.0.4
 Add ListDescriptors() and RemoveDescriptor()
 Update example to showcase the proper use of these functions
+
+## Fri 10 Mar 2017 09:06:36 PM MST Version: 0.0.5
+Forgot to add mutex locks in ListDescriptors() and RemoveDescriptor()
