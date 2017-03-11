@@ -225,13 +225,24 @@ func (w *Watcher) StartAll() error {
 	return nil
 }
 
-// getWatchDesccriptor() searches a Watcher instance for a watch descriptor.
+// GetDesccriptorByWatch() searches a Watcher instance for a watch descriptor.
 // Searches by inotify watch descriptor
 func (w *Watcher) GetDescriptorByWatch(wd int) *watchDescriptor {
 	w.Lock()
 	defer w.Unlock()
 	for _, d := range w.Descriptors {
 		if d.WatchDescriptor == wd {
+			return d
+		}
+	}
+	return nil
+}
+
+func (w *Watcher) GetDescriptorByPath(watchPath string) *watchDescriptor {
+	w.Lock()
+	defer w.Unlock()
+	for _, d := range w.Descriptors {
+		if d.Path == watchPath {
 			return d
 		}
 	}

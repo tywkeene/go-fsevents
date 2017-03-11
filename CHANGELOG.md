@@ -22,3 +22,6 @@ Fix comment typo
 
 ## Sat 11 Mar 2017 03:34:30 PM MST Version: 0.0.7
 Rename getWatchDescriptor() to GetDescriptorByWatch()
+
+## Sat 11 Mar 2017 03:37:41 PM MST Version: 0.0.8
+Added GetDescriptorByPath()
