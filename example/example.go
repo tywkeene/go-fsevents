@@ -3,6 +3,7 @@ package main
 import (
 	"log"
 	"os"
+	"path"
 
 	"github.com/tywkeene/go-fsevents"
 )
@@ -16,11 +17,11 @@ func handleEvents(watcher *fsevents.Watcher) {
 		case event := <-watcher.Events:
 			if (event.RawEvent.Mask&fsevents.Delete) == fsevents.Delete &&
 				(event.RawEvent.Mask&fsevents.IsDir) == fsevents.IsDir {
-				log.Println("Directory deleted:", event.Path)
+				log.Println("Directory deleted:", path.Clean(event.Path))
 			}
 			if (event.RawEvent.Mask&fsevents.Create) == fsevents.Create &&
 				(event.RawEvent.Mask&fsevents.IsDir) == fsevents.IsDir {
-				log.Println("Directory created:", event.Path)
+				log.Println("Directory created:", path.Clean(event.Path))
 			}
 			break
 		case err := <-watcher.Errors:
@@ -31,11 +32,17 @@ func handleEvents(watcher *fsevents.Watcher) {
 }
 
 func main() {
-	if os.Args[1] == "" {
+	if len(os.Args) == 0 {
 		panic("Must specify directory to watch")
 	}
 	watchDir := os.Args[1]
-	w, err := fsevents.NewWatcher(watchDir, fsevents.Delete|fsevents.Create|fsevents.IsDir)
+
+	options := &fsevents.WatcherOptions{
+		Recursive:       true,
+		UseWatcherFlags: true,
+	}
+	inotifyFlags := fsevents.Delete | fsevents.Create | fsevents.IsDir
+	w, err := fsevents.NewWatcher(watchDir, inotifyFlags, options)
 	if err != nil {
 		panic(err)
 	}

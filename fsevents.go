@@ -30,6 +30,13 @@ type FsEvent struct {
 	Descriptor *watchDescriptor
 }
 
+type WatcherOptions struct {
+	// Should this watcher be recursive?
+	Recursive bool
+	// Should we use the watcher's default inotify mask when creating new watchDescriptors?
+	UseWatcherFlags bool
+}
+
 type Watcher struct {
 	sync.Mutex
 	// The root path of this watcher
@@ -44,6 +51,8 @@ type Watcher struct {
 	Events chan *FsEvent
 	// How we report errors
 	Errors chan error
+	// This watcher's options
+	Options *WatcherOptions
 }
 
 const (
@@ -62,13 +71,6 @@ const (
 	RootDelete = unix.IN_DELETE_SELF
 	RootMove   = unix.IN_MOVE_SELF
 	IsDir      = unix.IN_ISDIR
-)
-
-const (
-	// fsevents flags
-
-	// Use the default flags in the Watcher struct when adding a new watch
-	UseWatcherFlags = iota
 )
 
 var (
@@ -92,6 +94,16 @@ func newWatchDescriptor(dirPath string, mask int) *watchDescriptor {
 	}
 }
 
+// Start() start starts a watchDescriptors inotify even watcher
+func (d *watchDescriptor) start(fd int) error {
+	var err error
+	d.WatchDescriptor, err = unix.InotifyAddWatch(fd, d.Path, uint32(d.Mask))
+	if d.WatchDescriptor == -1 {
+		return ErrWatchNotStart
+	}
+	return err
+}
+
 // DescriptorExists returns true if a WatchDescriptor exists in w.Descriptors, false otherwise
 func (w *Watcher) DescriptorExists(watchPath string) bool {
 	if _, exists := w.Descriptors[watchPath]; exists {
@@ -101,15 +113,15 @@ func (w *Watcher) DescriptorExists(watchPath string) bool {
 }
 
 // AddDescriptor() will add a descriptor to Watcher w. The descriptor is not started
-func (w *Watcher) AddDescriptor(dirPath string, flag int) error {
+func (w *Watcher) AddDescriptor(dirPath string, mask int) error {
 	if w.DescriptorExists(dirPath) == true {
 		return ErrWatchAlreadyExists
 	}
 	var inotifymask int
-	if flag == UseWatcherFlags {
+	if w.Options.UseWatcherFlags == true {
 		inotifymask = w.DefaultMask
 	} else {
-		inotifymask = flag
+		inotifymask = mask
 	}
 
 	w.Lock()
@@ -119,15 +131,29 @@ func (w *Watcher) AddDescriptor(dirPath string, flag int) error {
 	return nil
 }
 
-// Recursive add will add the directory at rootPath, and all directories below it, using the flags provided in flag
-func (w *Watcher) RecursiveAdd(rootPath string, flag int) error {
+// Recursive add will add the directory at rootPath, and all directories below it, using the flags provided in mask
+func (w *Watcher) RecursiveAdd(rootPath string, mask int) error {
 	dirStat, err := ioutil.ReadDir(rootPath)
 	if err != nil {
 		return err
 	}
+
+	var inotifymask int
+	if w.Options.UseWatcherFlags == true {
+		inotifymask = w.DefaultMask
+	} else {
+		inotifymask = mask
+	}
+
 	for _, child := range dirStat {
 		if child.IsDir() == true {
-			w.AddDescriptor(child.Name(), flag)
+			childPath := path.Clean(path.Join(rootPath, child.Name()))
+			if err := w.RecursiveAdd(childPath, inotifymask); err != nil {
+				return err
+			}
+			if err := w.AddDescriptor(childPath, inotifymask); err != nil {
+				return err
+			}
 		}
 	}
 	return nil
@@ -135,31 +161,28 @@ func (w *Watcher) RecursiveAdd(rootPath string, flag int) error {
 
 // NewWatcher allocates a new watcher at path rootPath, with the default mask defaultMask
 // This function initializes inotify, so it must be run first
-func NewWatcher(rootPath string, defaultMask int) (*Watcher, error) {
+func NewWatcher(rootPath string, defaultMask int, options *WatcherOptions) (*Watcher, error) {
 	// func InotifyInit() (fd int, err error)
 	fd, err := unix.InotifyInit()
 	if fd == -1 || err != nil {
 		return nil, fmt.Errorf("%s: %s", ErrWatchNotCreated, err)
 	}
 	w := &Watcher{
-		RootPath:       rootPath,
+		RootPath:       path.Clean(rootPath),
 		FileDescriptor: fd,
 		DefaultMask:    defaultMask,
 		Descriptors:    make(map[string]*watchDescriptor),
 		Events:         make(chan *FsEvent),
 		Errors:         make(chan error),
+		Options:        options,
 	}
-	return w, w.AddDescriptor(rootPath, defaultMask)
-}
-
-// Start() start starts a watchDescriptors inotify even watcher
-func (d *watchDescriptor) start(fd int) error {
-	var err error
-	d.WatchDescriptor, err = unix.InotifyAddWatch(fd, d.Path, uint32(d.Mask))
-	if d.WatchDescriptor == -1 {
-		return ErrWatchNotStart
+	if options.Recursive == true {
+		if err := w.AddDescriptor(w.RootPath, defaultMask); err != nil {
+			return w, err
+		}
+		return w, w.RecursiveAdd(w.RootPath, defaultMask)
 	}
-	return err
+	return w, w.AddDescriptor(w.RootPath, defaultMask)
 }
 
 // StartAll() Start all inotify watches described by this Watcher
@@ -218,7 +241,7 @@ func (w *Watcher) Watch() {
 			if rawEvent.Len > 0 {
 				// Grab the event name and make it a path
 				bytes := (*[unix.PathMax]byte)(unsafe.Pointer(&buffer[offset+unix.SizeofInotifyEvent]))
-				eventPath += strings.TrimRight(string(bytes[0:rawEvent.Len]), "\000")
+				eventPath += "/" + strings.TrimRight(string(bytes[0:rawEvent.Len]), "\000")
 				eventPath = path.Clean(eventPath)
 			}
 
