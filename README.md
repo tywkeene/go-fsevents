@@ -5,6 +5,13 @@ go-fsevents provides functions necessary for monitoring filesystem events on lin
 
 Unlike other inotify packages, go-fsevents provides a recursive watcher, allowing the monitoring of directory trees easily.
 
+## Features
+- Single directory event monitoring
+- Recursive directory tree event monitoring
+- Start and stop watches on the fly
+- Multiple watches, one file descriptor
+- Access to the underlying raw inotify event through the [unix](https://godoc.org/golang.org/x/sys/unix) package
+
 ## Quickstart
 
 ```
