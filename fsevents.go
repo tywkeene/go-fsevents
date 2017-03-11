@@ -78,6 +78,7 @@ var (
 	// Should probably provide a more situationally descriptive message along with it
 	ErrWatchNotCreated    = errors.New("watch descriptor could not be created")
 	ErrWatchAlreadyExists = errors.New("watch already exists")
+	ErrWatchNotExist      = errors.New("that watch does not exist")
 	ErrWatchNotStart      = errors.New("watch could not be started")
 	ErrWatchNotStopped    = errors.New("watch could not be stopped")
 	ErrWatchNotRemoved    = errors.New("watch could not be removed")
@@ -110,6 +111,27 @@ func (w *Watcher) DescriptorExists(watchPath string) bool {
 		return true
 	}
 	return false
+}
+
+// ListDescriptors() Lists all currently active watchDescriptors
+func (w *Watcher) ListDescriptors() []string {
+	list := make([]string, len(w.Descriptors))
+	for path, _ := range w.Descriptors {
+		list = append(list, path)
+	}
+	return list
+}
+
+// RemoveDescriptor() removes the watchDescriptor with the path matching path from the watcher,
+// and stops the inotify watcher
+func (w *Watcher) RemoveDescriptor(path string) error {
+	if w.DescriptorExists(path) == false {
+		return ErrWatchNotExist
+	}
+	descriptor := w.Descriptors[path]
+	unix.InotifyRmWatch(w.FileDescriptor, uint32(descriptor.WatchDescriptor))
+	delete(w.Descriptors, path)
+	return nil
 }
 
 // AddDescriptor() will add a descriptor to Watcher w. The descriptor is not started
