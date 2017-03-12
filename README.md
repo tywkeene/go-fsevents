@@ -11,6 +11,7 @@ Unlike other inotify packages, go-fsevents provides a recursive watcher, allowin
 - Start and stop watches on the fly
 - Multiple watches, one file descriptor
 - Access to the underlying raw inotify event through the [unix](https://godoc.org/golang.org/x/sys/unix) package
+- Predefined event translations. No need to fuss with raw inotify flags.
 
 ## Quickstart
 
@@ -26,22 +27,30 @@ import (
 )
 
 func handleEvents(watcher *fsevents.Watcher) {
-
-  // This will start all watch descriptors
 	watcher.StartAll()
-  // Now our watcher can receive events and send them over the channel
 	go watcher.Watch()
 	log.Println("Waiting for events...")
 	for {
+		list := watcher.ListDescriptors()
+		log.Println(list)
 		select {
 		case event := <-watcher.Events:
-			if (event.RawEvent.Mask&fsevents.Delete) == fsevents.Delete &&
-				(event.RawEvent.Mask&fsevents.IsDir) == fsevents.IsDir {
-				log.Println("Directory deleted:", path.Clean(event.Path))
-			}
-			if (event.RawEvent.Mask&fsevents.Create) == fsevents.Create &&
-				(event.RawEvent.Mask&fsevents.IsDir) == fsevents.IsDir {
+			log.Printf("Event Name: %s Event Path: %s", event.Name, event.Path)
+
+			if event.IsDirCreated() == true {
 				log.Println("Directory created:", path.Clean(event.Path))
+				watcher.AddDescriptor(path.Clean(event.Path), 0)
+			}
+			if event.IsDirRemoved() == true {
+				log.Println("Directory removed:", path.Clean(event.Path))
+				watcher.RemoveDescriptor(path.Clean(event.Path))
+			}
+
+			if event.IsFileCreated() == true {
+				log.Println("File created: ", event.Name)
+			}
+			if event.IsFileRemoved() == true {
+				log.Println("File removed: ", event.Name)
 			}
 			break
 		case err := <-watcher.Errors:
@@ -56,16 +65,13 @@ func main() {
 		panic("Must specify directory to watch")
 	}
 	watchDir := os.Args[1]
-  
-  // We're going to make a watcher that is recursive, and uses the default
-  // inotify mask on any subsequent descriptors added to this watcher
+
 	options := &fsevents.WatcherOptions{
 		Recursive:       true,
 		UseWatcherFlags: true,
 	}
-  // Watch for directory creation and deletion
-	inotifyFlags := fsevents.Delete | fsevents.Create | fsevents.IsDir
-  // Make our watcher
+	inotifyFlags := fsevents.Delete | fsevents.Create | fsevents.IsDir | fsevents.Modified | fsevents.MovedTo |
+		fsevents.Modified
 	w, err := fsevents.NewWatcher(watchDir, inotifyFlags, options)
 	if err != nil {
 		panic(err)
