@@ -41,3 +41,13 @@ Added status checks to d.Stop() and d.Start()
 ## Sat 11 Mar 2017 04:08:11 PM MST Version: 0.0.10
 Added w.StopAll() to stop all currently running WatchDescriptors
 
+## Sun 12 Mar 2017 03:02:50 PM MDT Version: 0.0.11
+
+Added WatchDescriptor.DoesPathExist() that returns true if a descriptor's path
+exists, false otherwise
+
+Fixed Watcher.RemoveDescriptor() to not try to remove an inotify watch
+of a file that has already been deleted, since inotify removes watches
+itself. So we just need to handle our own bookkeeping.
+
+

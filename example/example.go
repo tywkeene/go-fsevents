@@ -13,21 +13,19 @@ func handleEvents(watcher *fsevents.Watcher) {
 	go watcher.Watch()
 	log.Println("Waiting for events...")
 	for {
+		list := watcher.ListDescriptors()
+		log.Println(list)
 		select {
 		case event := <-watcher.Events:
 			if (event.RawEvent.Mask&fsevents.Delete) == fsevents.Delete &&
 				(event.RawEvent.Mask&fsevents.IsDir) == fsevents.IsDir {
 				log.Println("Directory deleted:", path.Clean(event.Path))
 				watcher.RemoveDescriptor(path.Clean(event.Path))
-				list := watcher.ListDescriptors()
-				log.Println(list)
 			}
 			if (event.RawEvent.Mask&fsevents.Create) == fsevents.Create &&
 				(event.RawEvent.Mask&fsevents.IsDir) == fsevents.IsDir {
 				log.Println("Directory created:", path.Clean(event.Path))
 				watcher.AddDescriptor(path.Clean(event.Path), 0)
-				list := watcher.ListDescriptors()
-				log.Println(list)
 			}
 			break
 		case err := <-watcher.Errors:

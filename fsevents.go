@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"os"
 	"path"
 	"strings"
 	"sync"
@@ -108,7 +109,7 @@ func (d *WatchDescriptor) Start(fd int) error {
 	d.WatchDescriptor, err = unix.InotifyAddWatch(fd, d.Path, uint32(d.Mask))
 	if d.WatchDescriptor == -1 || err != nil {
 		d.Running = false
-		return fmt.Errorf("%s: %s", ErrWatchNotStart)
+		return fmt.Errorf("%s: %s", ErrWatchNotStart, err)
 	}
 	d.Running = true
 	return nil
@@ -121,10 +122,15 @@ func (d *WatchDescriptor) Stop(fd int) error {
 	}
 	_, err := unix.InotifyRmWatch(fd, uint32(d.WatchDescriptor))
 	if err != nil {
-		return fmt.Errorf("%s: %s", ErrWatchNotStopped)
+		return fmt.Errorf("%s: %s", ErrWatchNotStopped, err)
 	}
 	d.Running = false
 	return nil
+}
+
+func (d *WatchDescriptor) DoesPathExist() bool {
+	_, err := os.Lstat(d.Path)
+	return os.IsExist(err)
 }
 
 // DescriptorExists returns true if a WatchDescriptor exists in w.Descriptors, false otherwise
@@ -157,9 +163,11 @@ func (w *Watcher) RemoveDescriptor(path string) error {
 	w.Lock()
 	defer w.Unlock()
 	descriptor := w.Descriptors[path]
-	_, err := unix.InotifyRmWatch(w.FileDescriptor, uint32(descriptor.WatchDescriptor))
-	if err != nil {
-		return fmt.Errorf("%s: %s", ErrWatchNotStopped)
+	if descriptor.DoesPathExist() == true {
+		_, err := unix.InotifyRmWatch(w.FileDescriptor, uint32(descriptor.WatchDescriptor))
+		if err != nil {
+			return fmt.Errorf("%s: %s", ErrWatchNotStopped)
+		}
 	}
 	delete(w.Descriptors, path)
 	return nil
