@@ -25,7 +25,9 @@ type WatchDescriptor struct {
 }
 
 type FsEvent struct {
-	// The path of the event
+	// The name of the event's file
+	Name string
+	// The full path of the event
 	Path string
 	// The raw inotify event
 	RawEvent *unix.InotifyEvent
@@ -320,16 +322,18 @@ func (w *Watcher) Watch() {
 				continue
 			}
 
-			eventPath := descriptor.Path
+			var eventName string
+			var eventPath string
 			if rawEvent.Len > 0 {
-				// Grab the event name and make it a path
+				// Grab the event name and make the event path
 				bytes := (*[unix.PathMax]byte)(unsafe.Pointer(&buffer[offset+unix.SizeofInotifyEvent]))
-				eventPath += "/" + strings.TrimRight(string(bytes[0:rawEvent.Len]), "\000")
-				eventPath = path.Clean(eventPath)
+				eventName = strings.TrimRight(string(bytes[0:rawEvent.Len]), "\000")
+				eventPath = path.Clean(path.Join(descriptor.Path, eventName))
 			}
 
-			// Make our event and send if over the channel
+			// Make our event and send it over the channel
 			event := &FsEvent{
+				Name:       eventName,
 				Path:       eventPath,
 				Descriptor: descriptor,
 				RawEvent:   rawEvent,

@@ -17,6 +17,7 @@ func handleEvents(watcher *fsevents.Watcher) {
 		log.Println(list)
 		select {
 		case event := <-watcher.Events:
+			log.Printf("Event Name: %s Event Path: %s", event.Name, event.Path)
 			if (event.RawEvent.Mask&fsevents.Delete) == fsevents.Delete &&
 				(event.RawEvent.Mask&fsevents.IsDir) == fsevents.IsDir {
 				log.Println("Directory deleted:", path.Clean(event.Path))

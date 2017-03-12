@@ -53,3 +53,8 @@ itself. So we just need to handle our own bookkeeping.
 ## Sun 12 Mar 2017 03:17:26 PM MDT Version: 0.0.12
 
 Refactor GetDescriptorByPath() to be a little less dumb
+
+## Sun 12 Mar 2017 03:35:42 PM MDT Version: 0.0.13
+
+Added Name string to FsEvent structure. This is the name of the actual file
+associated with an event.
