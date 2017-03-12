@@ -285,12 +285,10 @@ func (w *Watcher) GetDescriptorByWatch(wd int) *WatchDescriptor {
 // GetDescriptorByPath searches a Watcher instance for a watch descriptor.
 // Searches by WatchDescriptor's path
 func (w *Watcher) GetDescriptorByPath(watchPath string) *WatchDescriptor {
-	w.Lock()
-	defer w.Unlock()
-	for _, d := range w.Descriptors {
-		if d.Path == watchPath {
-			return d
-		}
+	if w.DescriptorExists(watchPath) == true {
+		w.Lock()
+		defer w.Unlock()
+		return w.Descriptors[watchPath]
 	}
 	return nil
 }

@@ -50,4 +50,6 @@ Fixed Watcher.RemoveDescriptor() to not try to remove an inotify watch
 of a file that has already been deleted, since inotify removes watches
 itself. So we just need to handle our own bookkeeping.
 
+## Sun 12 Mar 2017 03:17:26 PM MDT Version: 0.0.12
 
+Refactor GetDescriptorByPath() to be a little less dumb
