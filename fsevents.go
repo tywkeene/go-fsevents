@@ -76,7 +76,42 @@ const (
 	RootDelete = unix.IN_DELETE_SELF
 	RootMove   = unix.IN_MOVE_SELF
 	IsDir      = unix.IN_ISDIR
+
+	AllEvents = (Accessed | Modified | AttrChange | CloseWrite | CloseRead | Open | MovedFrom |
+		MovedTo | MovedTo | Create | Delete | RootDelete | RootMove | IsDir)
 )
+
+func (e *FsEvent) IsDirEvent() bool {
+	return ((e.RawEvent.Mask & IsDir) != 0)
+}
+
+// Custom directory events
+
+// Directory created within the root watch, or moved into the root watch directory
+func (e *FsEvent) IsDirCreated() bool {
+	return (((e.RawEvent.Mask & Create) != 0) && (e.IsDirEvent() == true)) ||
+		(((e.RawEvent.Mask & MovedTo) != 0) && (e.IsDirEvent() == true))
+}
+
+// Directory deleted or moved out of the root watch directory
+func (e *FsEvent) IsDirRemoved() bool {
+	return (((e.RawEvent.Mask & Delete) != 0) && (e.IsDirEvent() == true)) ||
+		(((e.RawEvent.Mask & MovedFrom) != 0) && (e.IsDirEvent() == true))
+}
+
+// Custom file events
+
+// File was moved into, or created within the root watch directory
+func (e *FsEvent) IsFileCreated() bool {
+	return ((((e.RawEvent.Mask & Create) != 0) && (e.IsDirEvent() == false)) ||
+		(((e.RawEvent.Mask & MovedTo) != 0) && (e.IsDirEvent() == false)))
+}
+
+// File was deleted or moved out of the root watch directory
+func (e *FsEvent) IsFileRemoved() bool {
+	return (((e.RawEvent.Mask&Delete) != 0) && (e.IsDirEvent() == false) ||
+		((e.RawEvent.Mask&MovedFrom) != 0) && (e.IsDirEvent() == false))
+}
 
 var (
 	// All the errors returned by fsevents

@@ -58,3 +58,24 @@ Refactor GetDescriptorByPath() to be a little less dumb
 
 Added Name string to FsEvent structure. This is the name of the actual file
 associated with an event.
+
+## Sun 12 Mar 2017 05:46:32 PM MDT Version: 0.0.14
+
+Updated example/example.go
+
+Added some new higher level functions for getting event types:
+
+IsDirEvent(): Returns true if the event happened to a directory
+
+IsDirCreated(): Returns true if the event was a directory creation or
+                a directory was moved into the root watch directory
+
+IsDirRemoved(): Returns true if the event was a direction deletion or
+                a directory was moved outside of the root watch directory
+
+IsFileCreated(): Returns true if the event was a file being created or moved
+                 into the root watch directory
+
+IsFileRemoved(): Returns true if the event was a file being deleted or moved
+                 outside of the root watch directory
+
