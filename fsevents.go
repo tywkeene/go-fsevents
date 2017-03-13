@@ -79,38 +79,91 @@ const (
 
 	AllEvents = (Accessed | Modified | AttrChange | CloseWrite | CloseRead | Open | MovedFrom |
 		MovedTo | MovedTo | Create | Delete | RootDelete | RootMove | IsDir)
+
+	// Custom event flags
+
+	// Directory events
+	DirRemovedEvent = MovedFrom | Delete | IsDir
+	DirCreatedEvent = MovedTo | Create | IsDir
+	DirChangedEvent = CloseWrite | Modified | AttrChange | IsDir
+
+	// File events
+	FileRemovedEvent = MovedFrom | Delete
+	FileCreatedEvent = MovedTo | Create
+	FileChangedEvent = CloseWrite | Modified | AttrChange
+
+	// Root watch directory events
+	RootEvent = RootDelete | RootMove
 )
 
+func CheckMask(check int, mask uint32) bool {
+	return ((int(mask) & check) != 0)
+}
+
+// Returns true if the event is a directory event
 func (e *FsEvent) IsDirEvent() bool {
-	return ((e.RawEvent.Mask & IsDir) != 0)
+	return CheckMask(IsDir, e.RawEvent.Mask)
+}
+
+// Root events.
+
+func (e *FsEvent) IsRootDeletion() bool {
+	// This means the root watch directory has been deleted,
+	// and there will be no more events read from the descriptor
+	// since it doesn't exist anymore. You should probably handle this
+	// gracefully and always check for this event before doing anything else
+	// Also be sure to add the RootDelete flag to your watched events when
+	// initializing fsevents
+	return CheckMask(RootDelete, e.RawEvent.Mask)
+}
+
+func (e *FsEvent) IsRootMoved() bool {
+	// This means the root watch directory has been moved. This may not matter
+	// to you at all, and depends on how you deal with paths in your program.
+	// Still, you should check for this event before doing anything else.
+	return CheckMask(RootMove, e.RawEvent.Mask)
 }
 
 // Custom directory events
 
+// Directory was closed with write permissions, modified, or its attributes changed
+func (e *FsEvent) IsDirChanged() bool {
+	return ((CheckMask(CloseWrite, e.RawEvent.Mask) == true) && (e.IsDirEvent() == true)) ||
+		((CheckMask(Modified, e.RawEvent.Mask) == true) && (e.IsDirEvent() == true)) ||
+		((CheckMask(AttrChange, e.RawEvent.Mask) == true) && (e.IsDirEvent() == true))
+}
+
 // Directory created within the root watch, or moved into the root watch directory
 func (e *FsEvent) IsDirCreated() bool {
-	return (((e.RawEvent.Mask & Create) != 0) && (e.IsDirEvent() == true)) ||
-		(((e.RawEvent.Mask & MovedTo) != 0) && (e.IsDirEvent() == true))
+	return ((CheckMask(Create, e.RawEvent.Mask) == true) && (e.IsDirEvent() == true)) ||
+		((CheckMask(MovedTo, e.RawEvent.Mask) == true) && (e.IsDirEvent() == true))
 }
 
 // Directory deleted or moved out of the root watch directory
 func (e *FsEvent) IsDirRemoved() bool {
-	return (((e.RawEvent.Mask & Delete) != 0) && (e.IsDirEvent() == true)) ||
-		(((e.RawEvent.Mask & MovedFrom) != 0) && (e.IsDirEvent() == true))
+	return ((CheckMask(Delete, e.RawEvent.Mask) == true) && (e.IsDirEvent() == true)) ||
+		((CheckMask(MovedFrom, e.RawEvent.Mask) == true) && (e.IsDirEvent() == true))
 }
 
 // Custom file events
 
 // File was moved into, or created within the root watch directory
 func (e *FsEvent) IsFileCreated() bool {
-	return ((((e.RawEvent.Mask & Create) != 0) && (e.IsDirEvent() == false)) ||
-		(((e.RawEvent.Mask & MovedTo) != 0) && (e.IsDirEvent() == false)))
+	return (((CheckMask(Create, e.RawEvent.Mask) == true) && (e.IsDirEvent() == false)) ||
+		((CheckMask(MovedTo, e.RawEvent.Mask) == true) && (e.IsDirEvent() == false)))
 }
 
 // File was deleted or moved out of the root watch directory
 func (e *FsEvent) IsFileRemoved() bool {
-	return (((e.RawEvent.Mask&Delete) != 0) && (e.IsDirEvent() == false) ||
-		((e.RawEvent.Mask&MovedFrom) != 0) && (e.IsDirEvent() == false))
+	return ((CheckMask(Delete, e.RawEvent.Mask) == true) && (e.IsDirEvent() == false) ||
+		((CheckMask(MovedFrom, e.RawEvent.Mask) == true) && (e.IsDirEvent() == false)))
+}
+
+// File was closed with write permissions, modified, or its attributes changed
+func (e *FsEvent) IsFileChanged() bool {
+	return ((CheckMask(CloseWrite, e.RawEvent.Mask) == true) && (e.IsDirEvent() == false)) ||
+		((CheckMask(Modified, e.RawEvent.Mask) == true) && (e.IsDirEvent() == false)) ||
+		((CheckMask(AttrChange, e.RawEvent.Mask) == true) && (e.IsDirEvent() == false))
 }
 
 var (

@@ -19,6 +19,12 @@ func handleEvents(watcher *fsevents.Watcher) {
 		case event := <-watcher.Events:
 			log.Printf("Event Name: %s Event Path: %s", event.Name, event.Path)
 
+			// Root watch directory was deleted, panic
+			if event.IsRootDeletion() == true {
+				panic("Root watch directory deleted!")
+			}
+
+			// Directory events
 			if event.IsDirCreated() == true {
 				log.Println("Directory created:", path.Clean(event.Path))
 				watcher.AddDescriptor(path.Clean(event.Path), 0)
@@ -27,12 +33,19 @@ func handleEvents(watcher *fsevents.Watcher) {
 				log.Println("Directory removed:", path.Clean(event.Path))
 				watcher.RemoveDescriptor(path.Clean(event.Path))
 			}
+			if event.IsDirChanged() == true {
+				log.Println("Directory changed: ", event.Name)
+			}
 
+			// File events
 			if event.IsFileCreated() == true {
 				log.Println("File created: ", event.Name)
 			}
 			if event.IsFileRemoved() == true {
 				log.Println("File removed: ", event.Name)
+			}
+			if event.IsFileChanged() == true {
+				log.Println("File changed: ", event.Name)
 			}
 			break
 		case err := <-watcher.Errors:
@@ -52,8 +65,11 @@ func main() {
 		Recursive:       true,
 		UseWatcherFlags: true,
 	}
-	inotifyFlags := fsevents.Delete | fsevents.Create | fsevents.IsDir | fsevents.Modified | fsevents.MovedTo |
-		fsevents.Modified
+
+	inotifyFlags := fsevents.DirCreatedEvent | fsevents.DirRemovedEvent |
+		fsevents.FileCreatedEvent | fsevents.FileRemovedEvent |
+		fsevents.FileChangedEvent | fsevents.RootEvent
+
 	w, err := fsevents.NewWatcher(watchDir, inotifyFlags, options)
 	if err != nil {
 		panic(err)

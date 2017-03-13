@@ -79,3 +79,10 @@ IsFileCreated(): Returns true if the event was a file being created or moved
 IsFileRemoved(): Returns true if the event was a file being deleted or moved
                  outside of the root watch directory
 
+## Sun 12 Mar 2017 06:46:48 PM MDT Version: 0.0.15
+
+Refactored event mask checking in helper functions using new CheckMask() function
+
+Added IsRootMoved() and IsRootDeletion() helper functions
+
+Added custom predefined event flags that work with the new event checking functions
