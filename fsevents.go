@@ -83,8 +83,20 @@ const (
 	// Custom event flags
 
 	// Directory events
+
+	// A quick breakdown, same goes for the file events, except
+	// those pertain to files, not directories. There is a difference.
+
+	// The directory is not in the watch directory anymore
+	// whether it was moved or deleted, it's *poof* gone
 	DirRemovedEvent = MovedFrom | Delete | IsDir
+
+	// Whether it was moved or copied into the watch directory,
+	// or created with mkdir, there is a new directory
 	DirCreatedEvent = MovedTo | Create | IsDir
+
+	// A directory was closed with write permissions, modified, or its
+	// attributes changed in some way
 	DirChangedEvent = CloseWrite | Modified | AttrChange | IsDir
 
 	// File events
@@ -218,6 +230,7 @@ func (d *WatchDescriptor) Stop(fd int) error {
 	return nil
 }
 
+// DoesPathExist() Returns true if the path described by the descriptor exists
 func (d *WatchDescriptor) DoesPathExist() bool {
 	_, err := os.Lstat(d.Path)
 	return os.IsExist(err)
