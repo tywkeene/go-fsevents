@@ -1,3 +1,5 @@
+// Package fsevents provides routines for monitoring filesystem events
+// on linux systems via inotify recursively.
 package fsevents
 
 import (
@@ -108,17 +110,19 @@ const (
 	RootEvent = RootDelete | RootMove
 )
 
+// CheckMask() returns true if flag 'check' is found in bitmask 'mask'
 func CheckMask(check int, mask uint32) bool {
 	return ((int(mask) & check) != 0)
 }
 
-// Returns true if the event is a directory event
+// IsDirEvent() Returns true if the event is a directory event
 func (e *FsEvent) IsDirEvent() bool {
 	return CheckMask(IsDir, e.RawEvent.Mask)
 }
 
 // Root events.
 
+// IsRootDeletion() returns true if the event contains the inotify flag IN_DELETE_SELF
 // This means the root watch directory has been deleted,
 // and there will be no more events read from the descriptor
 // since it doesn't exist anymore. You should probably handle this
@@ -129,6 +133,7 @@ func (e *FsEvent) IsRootDeletion() bool {
 	return CheckMask(RootDelete, e.RawEvent.Mask)
 }
 
+// IsRootDeletion() returns true if the event contains the inotify flag IN_MOVE_SELF
 // This means the root watch directory has been moved. This may not matter
 // to you at all, and depends on how you deal with paths in your program.
 // Still, you should check for this event before doing anything else.
