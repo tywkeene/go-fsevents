@@ -119,20 +119,20 @@ func (e *FsEvent) IsDirEvent() bool {
 
 // Root events.
 
+// This means the root watch directory has been deleted,
+// and there will be no more events read from the descriptor
+// since it doesn't exist anymore. You should probably handle this
+// gracefully and always check for this event before doing anything else
+// Also be sure to add the RootDelete flag to your watched events when
+// initializing fsevents
 func (e *FsEvent) IsRootDeletion() bool {
-	// This means the root watch directory has been deleted,
-	// and there will be no more events read from the descriptor
-	// since it doesn't exist anymore. You should probably handle this
-	// gracefully and always check for this event before doing anything else
-	// Also be sure to add the RootDelete flag to your watched events when
-	// initializing fsevents
 	return CheckMask(RootDelete, e.RawEvent.Mask)
 }
 
+// This means the root watch directory has been moved. This may not matter
+// to you at all, and depends on how you deal with paths in your program.
+// Still, you should check for this event before doing anything else.
 func (e *FsEvent) IsRootMoved() bool {
-	// This means the root watch directory has been moved. This may not matter
-	// to you at all, and depends on how you deal with paths in your program.
-	// Still, you should check for this event before doing anything else.
 	return CheckMask(RootMove, e.RawEvent.Mask)
 }
 
@@ -236,7 +236,7 @@ func (d *WatchDescriptor) DoesPathExist() bool {
 	return os.IsExist(err)
 }
 
-// DescriptorExists returns true if a WatchDescriptor exists in w.Descriptors, false otherwise
+// DescriptorExists() returns true if a WatchDescriptor exists in w.Descriptors, false otherwise
 func (w *Watcher) DescriptorExists(watchPath string) bool {
 	w.Lock()
 	defer w.Unlock()
@@ -295,7 +295,7 @@ func (w *Watcher) AddDescriptor(dirPath string, mask int) error {
 	return nil
 }
 
-// Recursive add will add the directory at rootPath, and all directories below it, using the flags provided in mask
+// RecursiveAdd() add the directory at rootPath, and all directories below it, using the flags provided in mask
 func (w *Watcher) RecursiveAdd(rootPath string, mask int) error {
 	dirStat, err := ioutil.ReadDir(rootPath)
 	if err != nil {
@@ -323,7 +323,7 @@ func (w *Watcher) RecursiveAdd(rootPath string, mask int) error {
 	return nil
 }
 
-// NewWatcher allocates a new watcher at path rootPath, with the default mask defaultMask
+// NewWatcher() allocate a new watcher at path rootPath, with the default mask defaultMask
 // This function initializes inotify, so it must be run first
 func NewWatcher(rootPath string, defaultMask int, options *WatcherOptions) (*Watcher, error) {
 	// func InotifyInit() (fd int, err error)
@@ -385,7 +385,7 @@ func (w *Watcher) GetDescriptorByWatch(wd int) *WatchDescriptor {
 	return nil
 }
 
-// GetDescriptorByPath searches a Watcher instance for a watch descriptor.
+// GetDescriptorByPath() searches a Watcher instance for a watch descriptor.
 // Searches by WatchDescriptor's path
 func (w *Watcher) GetDescriptorByPath(watchPath string) *WatchDescriptor {
 	if w.DescriptorExists(watchPath) == true {
@@ -396,8 +396,8 @@ func (w *Watcher) GetDescriptorByPath(watchPath string) *WatchDescriptor {
 	return nil
 }
 
-// Most of this function was copied from https://github.com/fsnotify/fsnotify
-// Cheers to the authors of this project.
+// Watch() Read events from inotify, and send them over the w.Events channel
+// All errors are reported over the w.Errors channel
 func (w *Watcher) Watch() {
 	var buffer [unix.SizeofInotifyEvent * 4096]byte
 	for {
