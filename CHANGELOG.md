@@ -86,3 +86,6 @@ Refactored event mask checking in helper functions using new CheckMask() functio
 Added IsRootMoved() and IsRootDeletion() helper functions
 
 Added custom predefined event flags that work with the new event checking functions
+
+## Tue 28 Mar 2017 03:03:53 PM MDT Version: 0.0.16
+Fixed fmt.Errorf() typo

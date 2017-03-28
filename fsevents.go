@@ -269,7 +269,7 @@ func (w *Watcher) RemoveDescriptor(path string) error {
 	if descriptor.DoesPathExist() == true {
 		_, err := unix.InotifyRmWatch(w.FileDescriptor, uint32(descriptor.WatchDescriptor))
 		if err != nil {
-			return fmt.Errorf("%s: %s", ErrWatchNotStopped)
+			return fmt.Errorf("%s: %s", ErrWatchNotStopped, err)
 		}
 	}
 	delete(w.Descriptors, path)
