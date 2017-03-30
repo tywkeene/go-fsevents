@@ -13,25 +13,31 @@ func handleEvents(watcher *fsevents.Watcher) {
 	go watcher.Watch()
 	log.Println("Waiting for events...")
 	for {
-		list := watcher.ListDescriptors()
-		log.Println(list)
 		select {
 		case event := <-watcher.Events:
 			log.Printf("Event Name: %s Event Path: %s", event.Name, event.Path)
 
 			// Root watch directory was deleted, panic
-			if event.IsRootDeletion() == true {
+			if event.IsRootDeletion(watcher.RootPath) == true {
 				panic("Root watch directory deleted!")
 			}
 
 			// Directory events
 			if event.IsDirCreated() == true {
 				log.Println("Directory created:", path.Clean(event.Path))
-				watcher.AddDescriptor(path.Clean(event.Path), 0)
+				if err := watcher.AddDescriptor(path.Clean(event.Path), 0); err != nil {
+					panic(err)
+				} else {
+					log.Printf("Watch descriptor created and started for %s", event.Path)
+				}
 			}
 			if event.IsDirRemoved() == true {
 				log.Println("Directory removed:", path.Clean(event.Path))
-				watcher.RemoveDescriptor(path.Clean(event.Path))
+				if err := watcher.RemoveDescriptor(path.Clean(event.Path)); err != nil {
+					panic(err)
+				} else {
+					log.Printf("Watch descriptor removed for %s", event.Path)
+				}
 			}
 			if event.IsDirChanged() == true {
 				log.Println("Directory changed: ", event.Name)

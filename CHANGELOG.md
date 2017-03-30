@@ -97,3 +97,7 @@ before trying to create a watch for it
 
 ## Thu 30 Mar 2017 03:33:31 PM MDT Version: 0.0.18
 Renamed/removed/added some error variables
+
+## Thu 30 Mar 2017 03:56:37 PM MDT Version: 0.0.19
+Make IsRootDeletion() and IsRootMoved() compare the pathname of the event, and the root
+path of the watcher

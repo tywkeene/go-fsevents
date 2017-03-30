@@ -123,22 +123,24 @@ func (e *FsEvent) IsDirEvent() bool {
 // Root events.
 
 // IsRootDeletion() returns true if the event contains the inotify flag IN_DELETE_SELF
+// and the rootPath argument matches the path in the FsEvent structure.
 // This means the root watch directory has been deleted,
 // and there will be no more events read from the descriptor
 // since it doesn't exist anymore. You should probably handle this
 // gracefully and always check for this event before doing anything else
 // Also be sure to add the RootDelete flag to your watched events when
 // initializing fsevents
-func (e *FsEvent) IsRootDeletion() bool {
-	return CheckMask(RootDelete, e.RawEvent.Mask)
+func (e *FsEvent) IsRootDeletion(rootPath string) bool {
+	return (CheckMask(RootDelete, e.RawEvent.Mask) == true && (rootPath == e.Path))
 }
 
 // IsRootMoved() returns true if the event contains the inotify flag IN_MOVE_SELF
+// and the rootPath argument matches the path in the FsEvent structure.
 // This means the root watch directory has been moved. This may not matter
 // to you at all, and depends on how you deal with paths in your program.
 // Still, you should check for this event before doing anything else.
-func (e *FsEvent) IsRootMoved() bool {
-	return CheckMask(RootMove, e.RawEvent.Mask)
+func (e *FsEvent) IsRootMoved(rootPath string) bool {
+	return (CheckMask(RootMove, e.RawEvent.Mask) == true && (rootPath == e.Path))
 }
 
 // Custom directory events
