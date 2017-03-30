@@ -284,6 +284,9 @@ func (w *Watcher) RemoveDescriptor(path string) error {
 // AddDescriptor() will add a descriptor to Watcher w. The descriptor is not started
 // if UseWatcherFlags is true in Watcher.Options, the descriptor will use the Watcher's inotify flags
 func (w *Watcher) AddDescriptor(dirPath string, mask int) error {
+	if _, err := os.Stat(dirPath); os.IsNotExist(err) {
+		return fmt.Errorf("%s: %s", ErrWatchNotCreated, "directory does not exist")
+	}
 	if w.DescriptorExists(dirPath) == true {
 		return ErrWatchAlreadyExists
 	}

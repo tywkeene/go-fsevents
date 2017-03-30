@@ -91,3 +91,6 @@ Added custom predefined event flags that work with the new event checking functi
 
 Fixed fmt.Errorf() typo in fsevents.go
 
+## Thu 30 Mar 2017 02:58:10 PM MDT Version: 0.0.17
+Add check to AddDescriptor() to make sure dirPath exists
+before trying to create a watch for it
