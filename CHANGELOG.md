@@ -86,3 +86,8 @@ Refactored event mask checking in helper functions using new CheckMask() functio
 Added IsRootMoved() and IsRootDeletion() helper functions
 
 Added custom predefined event flags that work with the new event checking functions
+
+## Thu 30 Mar 2017 11:42:58 AM MDT Version: 0.0.16
+
+Fixed fmt.Errorf() typo in fsevents.go
+
