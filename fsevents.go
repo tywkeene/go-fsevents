@@ -133,7 +133,7 @@ func (e *FsEvent) IsRootDeletion() bool {
 	return CheckMask(RootDelete, e.RawEvent.Mask)
 }
 
-// IsRootDeletion() returns true if the event contains the inotify flag IN_MOVE_SELF
+// IsRootMoved() returns true if the event contains the inotify flag IN_MOVE_SELF
 // This means the root watch directory has been moved. This may not matter
 // to you at all, and depends on how you deal with paths in your program.
 // Still, you should check for this event before doing anything else.
@@ -186,17 +186,23 @@ func (e *FsEvent) IsFileChanged() bool {
 var (
 	// All the errors returned by fsevents
 	// Should probably provide a more situationally descriptive message along with it
-	ErrWatchNotCreated     = errors.New("watch descriptor could not be created")
-	ErrWatchAlreadyExists  = errors.New("watch already exists")
-	ErrWatchNotExist       = errors.New("that watch does not exist")
-	ErrWatchNotStart       = errors.New("watch could not be started")
-	ErrWatchNotStopped     = errors.New("watch could not be stopped")
-	ErrWatchNotRemoved     = errors.New("watch could not be removed")
-	ErrIncompleteRead      = errors.New("incomplete event read")
-	ErrReadError           = errors.New("error reading an event")
-	ErrDescriptorNotFound  = errors.New("descriptor for event not found")
-	ErrWatchNotRunning     = errors.New("descriptor is already stopped")
-	ErrWatchAlreadyRunning = errors.New("descriptor is already running")
+
+	//Top-level Watcher errors
+	ErrWatchNotCreated = errors.New("watcher could not be created")
+
+	//Descriptor errors
+	ErrDescNotCreated       = errors.New("descriptor could not be created")
+	ErrDescNotStart         = errors.New("descriptor could not be started")
+	ErrDescAlreadyRunning   = errors.New("descriptor already running")
+	ErrDescNotStopped       = errors.New("descriptor could not be stopped")
+	ErrDescAlreadyExists    = errors.New("descriptor for that directory already exists")
+	ErrDescNotRunning       = errors.New("descriptor not running")
+	ErrDescForEventNotFound = errors.New("descriptor for event not found")
+	ErrDescNotFound         = errors.New("descriptor not found")
+
+	//Inotify interface errors
+	ErrIncompleteRead = errors.New("incomplete event read")
+	ErrReadError      = errors.New("error reading an event")
 )
 
 func newWatchDescriptor(dirPath string, mask int) *WatchDescriptor {
@@ -211,12 +217,12 @@ func newWatchDescriptor(dirPath string, mask int) *WatchDescriptor {
 func (d *WatchDescriptor) Start(fd int) error {
 	var err error
 	if d.Running == true {
-		return ErrWatchAlreadyRunning
+		return ErrDescAlreadyRunning
 	}
 	d.WatchDescriptor, err = unix.InotifyAddWatch(fd, d.Path, uint32(d.Mask))
 	if d.WatchDescriptor == -1 || err != nil {
 		d.Running = false
-		return fmt.Errorf("%s: %s", ErrWatchNotStart, err)
+		return fmt.Errorf("%s: %s", ErrDescNotStart, err)
 	}
 	d.Running = true
 	return nil
@@ -225,11 +231,11 @@ func (d *WatchDescriptor) Start(fd int) error {
 // Stop() Stop a running watch descriptor
 func (d *WatchDescriptor) Stop(fd int) error {
 	if d.Running == false {
-		return ErrWatchNotRunning
+		return ErrDescNotRunning
 	}
 	_, err := unix.InotifyRmWatch(fd, uint32(d.WatchDescriptor))
 	if err != nil {
-		return fmt.Errorf("%s: %s", ErrWatchNotStopped, err)
+		return fmt.Errorf("%s: %s", ErrDescNotStopped, err)
 	}
 	d.Running = false
 	return nil
@@ -266,15 +272,14 @@ func (w *Watcher) ListDescriptors() []string {
 // and stops the inotify watcher
 func (w *Watcher) RemoveDescriptor(path string) error {
 	if w.DescriptorExists(path) == false {
-		return ErrWatchNotExist
+		return ErrDescNotFound
 	}
 	w.Lock()
 	defer w.Unlock()
 	descriptor := w.Descriptors[path]
 	if descriptor.DoesPathExist() == true {
-		_, err := unix.InotifyRmWatch(w.FileDescriptor, uint32(descriptor.WatchDescriptor))
-		if err != nil {
-			return fmt.Errorf("%s: %s", ErrWatchNotStopped, err)
+		if err := descriptor.Stop(descriptor.WatchDescriptor); err != nil {
+			return err
 		}
 	}
 	delete(w.Descriptors, path)
@@ -285,10 +290,10 @@ func (w *Watcher) RemoveDescriptor(path string) error {
 // if UseWatcherFlags is true in Watcher.Options, the descriptor will use the Watcher's inotify flags
 func (w *Watcher) AddDescriptor(dirPath string, mask int) error {
 	if _, err := os.Stat(dirPath); os.IsNotExist(err) {
-		return fmt.Errorf("%s: %s", ErrWatchNotCreated, "directory does not exist")
+		return fmt.Errorf("%s: %s", ErrDescNotCreated, "directory does not exist")
 	}
 	if w.DescriptorExists(dirPath) == true {
-		return ErrWatchAlreadyExists
+		return ErrDescNotFound
 	}
 	var inotifymask int
 	if w.Options.UseWatcherFlags == true {
@@ -428,7 +433,7 @@ func (w *Watcher) Watch() {
 			descriptor = w.GetDescriptorByWatch(int(rawEvent.Wd))
 
 			if descriptor == nil {
-				w.Errors <- ErrDescriptorNotFound
+				w.Errors <- ErrDescForEventNotFound
 				continue
 			}
 

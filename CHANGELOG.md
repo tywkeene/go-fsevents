@@ -94,3 +94,6 @@ Fixed fmt.Errorf() typo in fsevents.go
 ## Thu 30 Mar 2017 02:58:10 PM MDT Version: 0.0.17
 Add check to AddDescriptor() to make sure dirPath exists
 before trying to create a watch for it
+
+## Thu 30 Mar 2017 03:33:31 PM MDT Version: 0.0.18
+Renamed/removed/added some error variables
