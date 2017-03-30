@@ -251,7 +251,7 @@ func (w *Watcher) DescriptorExists(watchPath string) bool {
 	return false
 }
 
-// ListDescriptors() Lists all currently active WatchDescriptors
+// ListDescriptors() returns a string array of all WatchDescriptors in w *Watcher
 func (w *Watcher) ListDescriptors() []string {
 	list := make([]string, len(w.Descriptors))
 	w.Lock()
@@ -282,6 +282,7 @@ func (w *Watcher) RemoveDescriptor(path string) error {
 }
 
 // AddDescriptor() will add a descriptor to Watcher w. The descriptor is not started
+// if UseWatcherFlags is true in Watcher.Options, the descriptor will use the Watcher's inotify flags
 func (w *Watcher) AddDescriptor(dirPath string, mask int) error {
 	if w.DescriptorExists(dirPath) == true {
 		return ErrWatchAlreadyExists
@@ -366,7 +367,7 @@ func (w *Watcher) StartAll() error {
 	return nil
 }
 
-// StopAll() Stop all running watch descriptors
+// StopAll() Stop all running watch descriptors. Does not remove descriptors from the watch
 func (w *Watcher) StopAll() {
 	w.Lock()
 	defer w.Unlock()

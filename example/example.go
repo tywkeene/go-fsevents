@@ -62,10 +62,18 @@ func main() {
 	watchDir := os.Args[1]
 
 	options := &fsevents.WatcherOptions{
-		Recursive:       true,
+		// Recursive flag will make a watcher recursive,
+		// meaning it will go all the way down the directory
+		// tree, and add descriptors for all directories it finds
+		Recursive: true,
+		// UseWatcherFlags will use the flag passed to NewWatcher()
+		// for all subsequently created watch descriptors
 		UseWatcherFlags: true,
 	}
 
+	// You might need to play with these flags to get the events you want
+	// You can use these pre-defined flags that are declared in fsevents.go,
+	// or the original inotify flags declared in the golang.org/x/sys/unix package
 	inotifyFlags := fsevents.DirCreatedEvent | fsevents.DirRemovedEvent |
 		fsevents.FileCreatedEvent | fsevents.FileRemovedEvent |
 		fsevents.FileChangedEvent | fsevents.RootEvent
