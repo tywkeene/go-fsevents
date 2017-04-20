@@ -87,7 +87,6 @@ Added IsRootMoved() and IsRootDeletion() helper functions
 
 Added custom predefined event flags that work with the new event checking functions
 
-<<<<<<< HEAD
 ## Thu 30 Mar 2017 11:42:58 AM MDT Version: 0.0.16
 
 Fixed fmt.Errorf() typo in fsevents.go
@@ -102,3 +101,7 @@ Renamed/removed/added some error variables
 ## Thu 30 Mar 2017 03:56:37 PM MDT Version: 0.0.19
 Make IsRootDeletion() and IsRootMoved() compare the pathname of the event, and the root
 path of the watcher
+
+## Thu 20 Apr 2017 04:07:58 PM MDT Version: 0.0.20
+
+Added fsevents_test.go
