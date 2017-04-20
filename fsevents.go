@@ -131,7 +131,7 @@ func (e *FsEvent) IsDirEvent() bool {
 // Also be sure to add the RootDelete flag to your watched events when
 // initializing fsevents
 func (e *FsEvent) IsRootDeletion(rootPath string) bool {
-	return (CheckMask(RootDelete, e.RawEvent.Mask) == true && (rootPath == e.Path))
+	return (CheckMask(RootDelete, e.RawEvent.Mask) == true) && (rootPath == e.Path)
 }
 
 // IsRootMoved() returns true if the event contains the inotify flag IN_MOVE_SELF
@@ -140,7 +140,7 @@ func (e *FsEvent) IsRootDeletion(rootPath string) bool {
 // to you at all, and depends on how you deal with paths in your program.
 // Still, you should check for this event before doing anything else.
 func (e *FsEvent) IsRootMoved(rootPath string) bool {
-	return (CheckMask(RootMove, e.RawEvent.Mask) == true && (rootPath == e.Path))
+	return (CheckMask(RootMove, e.RawEvent.Mask) == true) && (rootPath == e.Path)
 }
 
 // Custom directory events

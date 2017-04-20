@@ -105,3 +105,8 @@ path of the watcher
 ## Thu 20 Apr 2017 04:07:58 PM MDT Version: 0.0.20
 
 Added fsevents_test.go
+
+## Thu 20 Apr 2017 04:20:18 PM MDT Version: 0.0.21
+
+Formatting in fsevents.go
+Logging output in example/example.go

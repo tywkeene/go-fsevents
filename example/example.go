@@ -18,6 +18,7 @@ func handleEvents(watcher *fsevents.Watcher) {
 			log.Printf("Event Name: %s Event Path: %s", event.Name, event.Path)
 
 			// Root watch directory was deleted, panic
+			log.Printf("Watcher %s event %s", watcher.RootPath, event.Path)
 			if event.IsRootDeletion(watcher.RootPath) == true {
 				panic("Root watch directory deleted!")
 			}
