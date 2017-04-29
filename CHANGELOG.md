@@ -113,3 +113,6 @@ Logging output in example/example.go
 
 ## Sat 29 Apr 2017 09:52:43 AM MDT Version: 0.0.22
 Return error from w.StopAll()
+
+## Sat 29 Apr 2017 10:16:11 AM MDT Version: 0.0.23
+Added scripts/test/cover.sh and updated .gitignore
