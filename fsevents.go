@@ -378,14 +378,17 @@ func (w *Watcher) StartAll() error {
 }
 
 // StopAll() Stop all running watch descriptors. Does not remove descriptors from the watch
-func (w *Watcher) StopAll() {
+func (w *Watcher) StopAll() error {
 	w.Lock()
 	defer w.Unlock()
 	for _, d := range w.Descriptors {
 		if d.Running == true {
-			d.Stop(w.FileDescriptor)
+			if err := d.Stop(w.FileDescriptor); err != nil {
+				return err
+			}
 		}
 	}
+	return nil
 }
 
 // GetDesccriptorByWatch() searches a Watcher instance for a watch descriptor.

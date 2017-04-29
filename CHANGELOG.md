@@ -110,3 +110,6 @@ Added fsevents_test.go
 
 Formatting in fsevents.go
 Logging output in example/example.go
+
+## Sat 29 Apr 2017 09:52:43 AM MDT Version: 0.0.22
+Return error from w.StopAll()
