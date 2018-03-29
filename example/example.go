@@ -63,7 +63,7 @@ func handleEvents(watcher *fsevents.Watcher) {
 }
 
 func main() {
-	if len(os.Args) == 0 {
+	if len(os.Args) == 1 {
 		panic("Must specify directory to watch")
 	}
 	watchDir := os.Args[1]
