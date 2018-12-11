@@ -5,7 +5,7 @@ import (
 	"os"
 	"path"
 
-	"github.com/tywkeene/go-fsevents"
+	fsevents "github.com/tywkeene/go-fsevents"
 )
 
 func handleEvents(watcher *fsevents.Watcher) {
@@ -29,6 +29,9 @@ func handleEvents(watcher *fsevents.Watcher) {
 				if err := watcher.AddDescriptor(path.Clean(event.Path), 0); err != nil {
 					panic(err)
 				} else {
+					// When a new dir is created, we need to add it to the descriptors list and start it
+					descriptor := watcher.GetDescriptorByPath(path.Clean(event.Path))
+					descriptor.Start(watcher.FileDescriptor)
 					log.Printf("Watch descriptor created and started for %s", event.Path)
 				}
 			}

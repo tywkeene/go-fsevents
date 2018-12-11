@@ -17,7 +17,7 @@ Unlike other inotify packages, go-fsevents provides a recursive watcher, allowin
 
 ## Quickstart
 
-```
+```go
 package main
 
 import (
@@ -42,6 +42,8 @@ func handleEvents(watcher *fsevents.Watcher) {
 			if event.IsDirCreated() == true {
 				log.Println("Directory created:", path.Clean(event.Path))
 				watcher.AddDescriptor(path.Clean(event.Path), 0)
+				descriptor := watcher.GetDescriptorByPath(path.Clean(event.Path))
+				descriptor.Start(watcher.FileDescriptor)
 			}
 			if event.IsDirRemoved() == true {
 				log.Println("Directory removed:", path.Clean(event.Path))
