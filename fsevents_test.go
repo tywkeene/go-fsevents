@@ -3,7 +3,6 @@ package fsevents_test
 import (
 	"fmt"
 	"path"
-	//"fmt"
 	"runtime"
 	"testing"
 
