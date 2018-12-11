@@ -17,7 +17,7 @@ Unlike other inotify packages, go-fsevents provides a recursive watcher, allowin
 
 ## Quickstart
 
-```
+```go
 package main
 
 import (
