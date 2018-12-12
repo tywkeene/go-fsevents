@@ -295,7 +295,7 @@ func (w *Watcher) AddDescriptor(dirPath string, mask int) error {
 		return fmt.Errorf("%s: %s", ErrDescNotCreated, "directory does not exist")
 	}
 	if w.DescriptorExists(dirPath) == true {
-		return ErrDescNotFound
+		return ErrDescAlreadyExists
 	}
 	var inotifymask int
 	if w.Options.UseWatcherFlags == true {
