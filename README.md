@@ -83,3 +83,11 @@ func main() {
 	handleEvents(w)
 }
 ```
+
+## Running the tests
+
+Since this library only works on Linux systems, we provide a way to test the code using `Docker`.
+
+```
+make test
+```
