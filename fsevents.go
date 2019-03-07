@@ -435,6 +435,12 @@ func (w *Watcher) Watch() {
 		var descriptor *WatchDescriptor
 		for offset <= uint32(bytesRead-unix.SizeofInotifyEvent) {
 			rawEvent = (*unix.InotifyEvent)(unsafe.Pointer(&buffer[offset]))
+
+			if rawEvent.Len == 0 {
+				w.Errors <- ErrIncompleteRead
+				break
+			}
+
 			descriptor = w.GetDescriptorByWatch(int(rawEvent.Wd))
 
 			if descriptor == nil {
