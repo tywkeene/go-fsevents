@@ -13,7 +13,7 @@ import (
 )
 
 type MaskTest struct {
-	UnixMask int
+	UnixMask uint32
 	Args     []string
 	Setup    func(...string) error
 	Action   string
@@ -183,7 +183,6 @@ func TestMasks(t *testing.T) {
 		UseWatcherFlags: false,
 	}
 
-	var successfulTestCount int = 0
 	for i, maskTest := range MaskTests {
 
 		fmt.Printf("Running test %d: %s\n", i, maskTest.Action)
@@ -220,11 +219,9 @@ func TestMasks(t *testing.T) {
 		w.RemoveDescriptor(testRootDir)
 		w = nil
 
-		successfulTestCount++
 		fmt.Printf("Test finished successfully\n")
 		fmt.Printf("------------------------\n")
 	}
-	fmt.Printf("%d tests ran successfully\n", successfulTestCount)
 }
 
 func TestNewWatcher(t *testing.T) {
@@ -264,11 +261,11 @@ func TestAddDescriptor(t *testing.T) {
 	eq((err == nil), err)
 
 	// err should be != nil if we add watch that already exists
-	err = w.AddDescriptor(testRootDir, -1)
+	err = w.AddDescriptor(testRootDir, fsevents.AllEvents)
 	eq((err != fsevents.ErrDescAlreadyExists), err)
 
 	// err should be != nil if directory does not exist
-	err = w.AddDescriptor("not_there/", -1)
+	err = w.AddDescriptor("not_there/", fsevents.AllEvents)
 	expectedErr := fmt.Errorf("%s: %s", fsevents.ErrDescNotCreated, "directory does not exist").Error()
 	eq((err.Error() == expectedErr), err)
 }

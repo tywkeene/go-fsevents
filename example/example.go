@@ -8,21 +8,38 @@ import (
 	fsevents "github.com/tywkeene/go-fsevents"
 )
 
+type DirectoryCreatedHandle struct {
+	Mask uint32
+}
+
+func (d *DirectoryCreatedHandle) Handle(w *fsevents.Watcher, event *fsevents.FsEvent) error {
+	log.Println("Handling directory create event ...")
+	log.Println("Directory created:", path.Clean(event.Path))
+	w.AddDescriptor(path.Clean(event.Path), 0)
+	descriptor := w.GetDescriptorByPath(path.Clean(event.Path))
+	descriptor.Start(w.FileDescriptor)
+	return nil
+}
+
+func (d *DirectoryCreatedHandle) GetMask() uint32 {
+	return d.Mask
+}
+
+func (d *DirectoryCreatedHandle) Check(event *fsevents.FsEvent) bool {
+	return event.IsDirCreated()
+}
+
 func handleEvents(watcher *fsevents.Watcher) {
+	watcher.RegisterEventHandle(fsevents.DirCreatedEvent, &DirectoryCreatedHandle{Mask: fsevents.DirCreatedEvent})
+
 	watcher.StartAll()
-	go watcher.Watch()
+	go watcher.WatchAndHandle()
 	log.Println("Waiting for events...")
 	for {
 		select {
 		case event := <-watcher.Events:
 			log.Printf("Event Name: %s Event Path: %s Event Descriptor: %v", event.Name, event.Path, event.Descriptor)
 
-			if event.IsDirCreated() == true {
-				log.Println("Directory created:", path.Clean(event.Path))
-				watcher.AddDescriptor(path.Clean(event.Path), 0)
-				descriptor := watcher.GetDescriptorByPath(path.Clean(event.Path))
-				descriptor.Start(watcher.FileDescriptor)
-			}
 			if event.IsDirRemoved() == true {
 				log.Println("Directory removed:", path.Clean(event.Path))
 				descriptor := watcher.GetDescriptorByWatch(int(event.RawEvent.Wd))
@@ -33,12 +50,6 @@ func handleEvents(watcher *fsevents.Watcher) {
 				watcher.RemoveDescriptor(path.Clean(event.Path))
 			}
 
-			if event.IsFileCreated() == true {
-				log.Println("File created: ", event.Name)
-			}
-			if event.IsFileRemoved() == true {
-				log.Println("File removed: ", event.Name)
-			}
 			if event.IsRootDeletion(watcher.RootPath) == true {
 				log.Println("Root directory deleted")
 				os.Exit(-1)
