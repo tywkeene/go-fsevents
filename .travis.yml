@@ -2,7 +2,7 @@ language: go
 sudo: false
 git:
   depth: 1
-install: true
+#install: true
 notifications:
   email: false
 
@@ -12,5 +12,6 @@ go:
 - "1.12"
 
 script:
+  - go get ./...
   - go vet .
   - go test -v -race ./...
