@@ -468,13 +468,9 @@ func (w *Watcher) ReadSingleEvent() (*FsEvent, error) {
 		return nil, ErrDescForEventNotFound
 	}
 
-	var eventName string
-	var eventPath string
-	if rawEvent.Len > 0 {
-		bytes := (*[unix.PathMax]byte)(unsafe.Pointer(&buffer[unix.SizeofInotifyEvent]))
-		eventName = strings.TrimRight(string(bytes[0:rawEvent.Len]), "\000")
-		eventPath = path.Clean(path.Join(descriptor.Path, eventName))
-	}
+	bytes := (*[unix.PathMax]byte)(unsafe.Pointer(&buffer[unix.SizeofInotifyEvent]))
+	eventName := strings.TrimRight(string(bytes[0:rawEvent.Len]), "\000")
+	eventPath := path.Clean(path.Join(descriptor.Path, eventName))
 
 	event := &FsEvent{
 		Name:       eventName,
