@@ -41,6 +41,7 @@ function bump_patch(){
 
 function generate_changelog(){
     echo "## $(date +%c) Version: $NEW_VERSION" >> CHANGELOG.md
+    echo "$(git --no-pager log -1 --pretty=%B)" >> CHANGELOG.md
 }
 
 function usage(){

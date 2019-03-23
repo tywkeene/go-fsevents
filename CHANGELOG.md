@@ -124,3 +124,6 @@ Added ReadSingleEvent() with simplified event reading from inotify descriptor
 
 ## Sat 23 Mar 2019 10:35:33 AM MDT Version: 0.0.25
 Added tests for (most) event masks
+
+## Sat 23 Mar 2019 05:54:24 PM MDT Version: 0.0.26
+Updated mask variables to uint32 to avoid conversion, Added EventHandle interface, RegisterEventHandle, UnregisterEventHandle, getEventHandle and WatchAndHandle. Updated example code to show new EventHandle interface usage
