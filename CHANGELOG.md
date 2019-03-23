@@ -117,7 +117,10 @@ Return error from w.StopAll()
 ## Sat 29 Apr 2017 10:16:11 AM MDT Version: 0.0.23
 Added scripts/test/cover.sh and updated .gitignore
 
-## Mon 18 Mar 2019 01:31:09 PM MDT Version: 1.0.0
+## Mon 18 Mar 2019 01:31:09 PM MDT Version: 0.0.24
 Added Event counter and helper functions. Simplified Watch().
 
 Added ReadSingleEvent() with simplified event reading from inotify descriptor
+
+## Sat 23 Mar 2019 10:35:33 AM MDT Version: 0.0.25
+Added tests for (most) event masks
