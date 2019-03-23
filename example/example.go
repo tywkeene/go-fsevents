@@ -16,8 +16,6 @@ func handleEvents(watcher *fsevents.Watcher) {
 		select {
 		case event := <-watcher.Events:
 			log.Printf("Event Name: %s Event Path: %s Event Descriptor: %v", event.Name, event.Path, event.Descriptor)
-			log.Println("Watcher Event Count:", watcher.GetEventCount())
-			log.Println("Running descriptors:", watcher.GetRunningDescriptors())
 
 			if event.IsDirCreated() == true {
 				log.Println("Directory created:", path.Clean(event.Path))
@@ -27,6 +25,11 @@ func handleEvents(watcher *fsevents.Watcher) {
 			}
 			if event.IsDirRemoved() == true {
 				log.Println("Directory removed:", path.Clean(event.Path))
+				descriptor := watcher.GetDescriptorByWatch(int(event.RawEvent.Wd))
+				if descriptor == nil {
+					panic("GetDescriptorByPath() returned nil descriptor")
+				}
+				descriptor.Stop(descriptor.WatchDescriptor)
 				watcher.RemoveDescriptor(path.Clean(event.Path))
 			}
 
@@ -36,13 +39,19 @@ func handleEvents(watcher *fsevents.Watcher) {
 			if event.IsFileRemoved() == true {
 				log.Println("File removed: ", event.Name)
 			}
-			break
-
+			if event.IsRootDeletion(watcher.RootPath) == true {
+				log.Println("Root directory deleted")
+				os.Exit(-1)
+			}
 			break
 		case err := <-watcher.Errors:
 			log.Println(err)
 			break
 		}
+		log.Println("Descriptors", watcher.ListDescriptors())
+		log.Println("Watcher Event Count:", watcher.GetEventCount())
+		log.Println("Running descriptors:", watcher.GetRunningDescriptors())
+		log.Printf("--------------\n\n")
 	}
 }
 
@@ -65,6 +74,7 @@ func main() {
 	// You might need to play with these flags to get the events you want
 	// You can use these pre-defined flags that are declared in fsevents.go,
 	// or the original inotify flags declared in the golang.org/x/sys/unix package
+
 	inotifyFlags := fsevents.DirCreatedEvent | fsevents.DirRemovedEvent |
 		fsevents.FileCreatedEvent | fsevents.FileRemovedEvent |
 		fsevents.FileChangedEvent | fsevents.RootEvent
