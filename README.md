@@ -1,6 +1,7 @@
 # go-fsevents
 [![GoDoc](https://godoc.org/github.com/tywkeene/go-fsevents?status.svg)](https://godoc.org/github.com/tywkeene/go-fsevents)
 [![Build Status](https://travis-ci.org/tywkeene/go-fsevents.svg?branch=master)](https://travis-ci.org/tywkeene/go-fsevents)
+[![codecov.io Code Coverage](https://img.shields.io/codecov/c/github/tywkeene/go-fsevents.svg?maxAge=2592000)](https://codecov.io/github/tywkeene/go-fsevents?branch=master)
 
 Recursive filesystem event watcher using inotify in golang
 
