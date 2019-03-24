@@ -2,7 +2,6 @@ language: go
 sudo: false
 git:
   depth: 1
-#install: true
 notifications:
   email: false
 
@@ -11,7 +10,12 @@ go:
 - "1.11"
 - "1.12"
 
+before_install:
+  - go get -t -v ./...
+  
 script:
-  - go get ./...
   - go vet .
-  - go test -v -race ./...
+  - go test -v -race -coverprofile=coverage.txt -covermode=atomic ./...
+
+after_success:
+  - bash <(curl -s https://codecov.io/bash)
