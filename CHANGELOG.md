@@ -126,4 +126,15 @@ Added ReadSingleEvent() with simplified event reading from inotify descriptor
 Added tests for (most) event masks
 
 ## Sat 23 Mar 2019 05:54:24 PM MDT Version: 0.0.26
-Updated mask variables to uint32 to avoid conversion, Added EventHandle interface, RegisterEventHandle, UnregisterEventHandle, getEventHandle and WatchAndHandle. Updated example code to show new EventHandle interface usage
+Updated mask variables to uint32 to avoid conversion
+
+Added EventHandle interface, RegisterEventHandle UnregisterEventHandle, getEventHandle and WatchAndHandle.
+
+Updated example code to show new EventHandle interface usage
+
+## Sun 24 Mar 2019 05:42:51 PM MDT Version: 0.0.27
+Refactored Stop and Start WatchDescriptor methods to not require the inotify file descriptor from the Watcher
+
+Added ID field to FsEvent to allow for differentiation between events and discerning what event came when.
+
+Split example code into examples/handle and examples/loop to show different ways to use go-fsevents

@@ -127,23 +127,17 @@ func removeTestDirectories() {
 	os.RemoveAll(testRootDir2)
 }
 
-func eq(compare bool, err error) {
+func eq(t *testing.T, compare bool, err error) {
 	if compare == false {
 		_, _, line, _ := runtime.Caller(1)
 		if err != nil {
-			fmt.Printf("Comparison @ line: %d false\n", line)
-			fmt.Println("Error returned:", err)
-
-			os.RemoveAll(testRootDir)
-			os.RemoveAll(testRootDir2)
-
-			os.Exit(-1)
+			t.Logf("Comparison @ line: %d false\n", line)
+			removeTestDirectories()
+			t.Fatal("Error returned:", err)
 		} else {
-			fmt.Printf("Comparison @ line: %d false\n", line)
-			os.RemoveAll(testRootDir)
-			os.RemoveAll(testRootDir2)
-
-			os.Exit(-1)
+			t.Logf("Comparison @ line: %d false\n", line)
+			removeTestDirectories()
+			t.Fatal("Exiting")
 		}
 	}
 }
@@ -178,94 +172,92 @@ func TestMasks(t *testing.T) {
 	setupTestDirectories(testRootDir2)
 	defer removeTestDirectories()
 
-	testOptions := &fsevents.WatcherOptions{
-		Recursive:       true,
-		UseWatcherFlags: false,
-	}
+	for _, maskTest := range MaskTests {
 
-	for i, maskTest := range MaskTests {
-
-		fmt.Printf("Running test %d: %s\n", i, maskTest.Action)
-		fmt.Printf("Running setup function... ")
 		err = maskTest.Setup(maskTest.Args...)
-		eq((err == nil), err)
+		eq(t, (err == nil), err)
 
-		w, err = fsevents.NewWatcher(testRootDir, maskTest.UnixMask, testOptions)
-		eq((w != nil), nil)
-		eq((err == nil), err)
+		w, err = fsevents.NewWatcher(testRootDir, maskTest.UnixMask)
+		eq(t, (w != nil), fmt.Errorf("NewWatcher should have returned a non-nil Watcher"))
+		eq(t, (err == nil), err)
 
-		fmt.Printf("Running Watcher ... ")
 		w.StartAll()
 
-		fmt.Printf("Running test action ... ")
 		testFunc := Actions[maskTest.Action]
 		err = testFunc(maskTest.Args...)
-		eq((err == nil), err)
+		eq(t, (err == nil), err)
 
-		fmt.Printf("Reading event ... \n")
 		event, err := w.ReadSingleEvent()
-		eq((err == nil), err)
+		eq(t, (err == nil), err)
 
 		// Ensure the event and its data is consistent
-		eq((event != nil), nil)
-		eq((event.Name != ""), nil)
-		eq((event.Path != ""), nil)
+		eq(t, (event != nil), fmt.Errorf("ReadSingleEvent should have returned a non-nil event"))
+		eq(t, (event.Name != ""), fmt.Errorf("The Name field in the event should not be empty"))
+		eq(t, (event.Path != ""), fmt.Errorf("The Name field in the event should not be empty"))
 
-		eq((w.GetEventCount() == 1), nil)
-		eq((fsevents.CheckMask(maskTest.UnixMask, event.RawEvent.Mask) == true),
+		eq(t, (w.GetEventCount() == 1), nil)
+		eq(t, (fsevents.CheckMask(maskTest.UnixMask, event.RawEvent.Mask) == true),
 			fmt.Errorf("Event returned invalid mask: Expected: %d Got: %d\n", maskTest.UnixMask, event.RawEvent.Mask))
 
 		w.StopAll()
 		w.RemoveDescriptor(testRootDir)
-		w = nil
-
-		fmt.Printf("Test finished successfully\n")
-		fmt.Printf("------------------------\n")
 	}
 }
 
 func TestNewWatcher(t *testing.T) {
 
 	setupTestDirectories(testRootDir)
-	setupTestDirectories(testRootDir2)
 	defer removeTestDirectories()
 
-	testOptions := &fsevents.WatcherOptions{
-		Recursive:       false,
-		UseWatcherFlags: false,
-	}
-	w, err := fsevents.NewWatcher(testRootDir, fsevents.AllEvents, testOptions)
-	eq((err == nil), err)
-	eq((w != nil), nil)
+	w, err := fsevents.NewWatcher(testRootDir, fsevents.AllEvents)
+	eq(t, (err == nil), err)
+	eq(t, (w != nil), fmt.Errorf("NewWatcher should have returned a non-nil Watcher"))
+	eq(t, (len(w.ListDescriptors()) == 1), fmt.Errorf("ListDescriptors should have returned 1"))
+}
 
-	for _, d := range w.ListDescriptors() {
-		fmt.Println(d)
-	}
+func TestStart(t *testing.T) {
+	setupTestDirectories(testRootDir)
+	defer removeTestDirectories()
+
+	w, err := fsevents.NewWatcher(testRootDir, fsevents.AllEvents)
+	eq(t, (err == nil), err)
+	eq(t, (w != nil), fmt.Errorf("NewWatcher should have returned a non-nil Watcher"))
+	eq(t, (len(w.ListDescriptors()) == 1), fmt.Errorf("ListDescriptors should have returned 1"))
+
+	d := w.GetDescriptorByPath(w.RootPath)
+	eq(t, (d != nil), fmt.Errorf("GetDescriptorByPath should have returned non-nil descriptor"))
+
+	d.Start()
+	eq(t, (w.GetRunningDescriptors() == 1), fmt.Errorf("GetRunningDescriptor should have returned 1"))
 }
 
 func TestAddDescriptor(t *testing.T) {
 
 	setupTestDirectories(testRootDir)
-	setupTestDirectories(testRootDir2)
 	defer removeTestDirectories()
 
-	testOptions := &fsevents.WatcherOptions{
-		Recursive:       false,
-		UseWatcherFlags: false,
-	}
 	var w *fsevents.Watcher
 	var err error
 
-	w, err = fsevents.NewWatcher(testRootDir, fsevents.AllEvents, testOptions)
-	eq((w != nil), nil)
-	eq((err == nil), err)
+	w, err = fsevents.NewWatcher(testRootDir, fsevents.AllEvents)
+	eq(t, (err == nil), err)
+	eq(t, (w != nil), fmt.Errorf("NewWatcher should have returned non-nil Watcher"))
+	eq(t, (len(w.ListDescriptors()) == 1), fmt.Errorf("ListDescriptors should have returned 1"))
 
-	// err should be != nil if we add watch that already exists
-	err = w.AddDescriptor(testRootDir, fsevents.AllEvents)
-	eq((err != fsevents.ErrDescAlreadyExists), err)
-
-	// err should be != nil if directory does not exist
-	err = w.AddDescriptor("not_there/", fsevents.AllEvents)
+	// AddDescriptor SHOULD return ErrDescNotCreated if we try to add a WatchDescriptor for a directory that does not exist
+	d, err := w.AddDescriptor("not_there/", fsevents.AllEvents)
+	eq(t, (d == nil), fmt.Errorf("AddDescriptor should have returned nil descriptor"))
 	expectedErr := fmt.Errorf("%s: %s", fsevents.ErrDescNotCreated, "directory does not exist").Error()
-	eq((err.Error() == expectedErr), err)
+	eq(t, (err.Error() == expectedErr), err)
+
+	// AddDescriptor SHOULD return a non-nil WatchDescriptor and a non-nil error if we add a WatchDescriptor for a directory
+	// that exists on disk and does not already have a running watch
+	d, err = w.AddDescriptor(testRootDir, fsevents.AllEvents)
+	eq(t, (d != nil), fmt.Errorf("AddDescriptor should have returned non-nil descriptor"))
+	eq(t, (err != fsevents.ErrDescAlreadyExists), fmt.Errorf("AddDescriptor should have returned error on duplicate descriptor"))
+
+	// AddDescriptor SHOULD NOT return error if we add a WatchDescriptor for a directory that exists and is not already watched
+	d, err = w.AddDescriptor(testRootDir, fsevents.AllEvents)
+	eq(t, (d == nil), fmt.Errorf("AddDescriptor should have returned nil descriptor"))
+	eq(t, (err == fsevents.ErrDescAlreadyExists), fmt.Errorf("AddDescriptor should have returned error on duplicate descriptor"))
 }

@@ -1,5 +1,5 @@
 // Package fsevents provides routines for monitoring filesystem events
-// on linux systems via inotify recursively.
+// on a Linux system via the inotify subsystem recursively.
 package fsevents
 
 // #include <unistd.h>
@@ -28,6 +28,8 @@ type WatchDescriptor struct {
 	WatchDescriptor int
 	// Is this watcher currently running?
 	Running bool
+	// InotifyDescriptor of the Watcher this WatchDescriptor belongs to
+	InotifyDescriptor *int
 }
 
 type FsEvent struct {
@@ -39,23 +41,18 @@ type FsEvent struct {
 	RawEvent *unix.InotifyEvent
 	// The actual inotify watch descriptor related to this event
 	Descriptor *WatchDescriptor
-}
-
-type WatcherOptions struct {
-	// Should this watcher be recursive?
-	Recursive bool
-	// Should we use the watcher's default inotify mask when creating new WatchDescriptors?
-	UseWatcherFlags bool
+	// The serial ID of this event. ID is incremented in ReadSingleEvent upon successful event read
+	ID uint32
 }
 
 // The EventHandle interface allows for the Watcher to apply pre-registered functions in response to an event.
 type EventHandler interface {
-	// The Handle method is called in response to a given event
+	// The Handle method is called by WatchAndHandle in response to a given event
 	Handle(w *Watcher, event *FsEvent) error
 	// The Check method is called to match Events with the correct EventHandle in the Watcher
 	// Check must return true if the event described by the in event matches the argument
 	Check(event *FsEvent) bool
-	// The GetMask() method returns the uint32 inotify mask this EventHandle handles
+	// The GetMask method returns the uint32 inotify mask this EventHandle handles
 	GetMask() uint32
 }
 
@@ -66,20 +63,16 @@ type Watcher struct {
 	// The root path of this watcher
 	RootPath string
 	// The main inotify descriptor
-	FileDescriptor int
-	// Default mask is applied to watches in AddWatch if no inotify flags are specified
-	DefaultMask uint32
+	InotifyDescriptor int
 	// Watch descriptors in this watch key: watch path -> value: WatchDescriptor
 	Descriptors map[string]*WatchDescriptor
 	// How many events have been read by this watcher from the inotify descriptor
-	// Top level counter, all descriptors and watches increment this counter
+	// This counter is incremented in ReadSingleEvent
 	EventCount uint32
 	// The event channel we send all events on
 	Events chan *FsEvent
 	// How we report errors
 	Errors chan error
-	// This watcher's options
-	Options *WatcherOptions
 }
 
 var (
@@ -94,7 +87,7 @@ var (
 	//Descriptor errors
 	ErrDescNotCreated       = errors.New("descriptor could not be created")
 	ErrDescNotStart         = errors.New("descriptor could not be started")
-	ErrDescAlreadyRunning   = errors.New("descriptor already running")
+	ErrDescRunning          = errors.New("descriptor already running")
 	ErrDescNotStopped       = errors.New("descriptor could not be stopped")
 	ErrDescAlreadyExists    = errors.New("descriptor for that directory already exists")
 	ErrDescNotRunning       = errors.New("descriptor not running")
@@ -104,6 +97,7 @@ var (
 	// Event handle errors
 	ErrNoSuchHandle = errors.New("handle not found")
 	ErrHandleError  = errors.New("handle returned error")
+	ErrHandleExists = errors.New("a handle for this mask already exists")
 
 	//Inotify interface errors
 	ErrIncompleteRead = errors.New("incomplete event read")
@@ -233,21 +227,22 @@ func (e *FsEvent) IsFileChanged() bool {
 		((CheckMask(AttrChange, e.RawEvent.Mask) == true) && (e.IsDirEvent() == false))
 }
 
-func newWatchDescriptor(dirPath string, mask uint32) *WatchDescriptor {
+func newWatchDescriptor(dirPath string, mask uint32, inotifyDescriptor int) *WatchDescriptor {
 	return &WatchDescriptor{
-		Path:            dirPath,
-		WatchDescriptor: -1,
-		Mask:            mask,
+		Path:              dirPath,
+		WatchDescriptor:   -1,
+		Mask:              mask,
+		InotifyDescriptor: &inotifyDescriptor,
 	}
 }
 
-// Start starts a WatchDescriptors inotify even watcher
-func (d *WatchDescriptor) Start(fd int) error {
+// Start starts a WatchDescriptor inotify event watcher. If the descriptor is already running Start returns ErrDescRunning
+func (d *WatchDescriptor) Start() error {
 	var err error
 	if d.Running == true {
-		return ErrDescAlreadyRunning
+		return ErrDescRunning
 	}
-	d.WatchDescriptor, err = unix.InotifyAddWatch(fd, d.Path, uint32(d.Mask))
+	d.WatchDescriptor, err = unix.InotifyAddWatch(*d.InotifyDescriptor, d.Path, d.Mask)
 	if d.WatchDescriptor == -1 || err != nil {
 		d.Running = false
 		return fmt.Errorf("%s: %s", ErrDescNotStart, err)
@@ -256,12 +251,12 @@ func (d *WatchDescriptor) Start(fd int) error {
 	return nil
 }
 
-// Stop a running watch descriptor
-func (d *WatchDescriptor) Stop(fd int) error {
+// Stop a running watch descriptor. If the descriptor is not running Stop returns ErrDescNotRunning
+func (d *WatchDescriptor) Stop() error {
 	if d.Running == false {
 		return ErrDescNotRunning
 	}
-	_, err := unix.InotifyRmWatch(fd, uint32(d.WatchDescriptor))
+	_, err := unix.InotifyRmWatch(*d.InotifyDescriptor, uint32(d.WatchDescriptor))
 	if err != nil {
 		return fmt.Errorf("%s: %s", ErrDescNotStopped, err)
 	}
@@ -286,7 +281,7 @@ func (w *Watcher) DescriptorExists(watchPath string) bool {
 }
 
 // Returns a string array of all WatchDescriptors in w *Watcher
-// Both started and stopped. To get a count of running watch descriptors, use w.GetRunningDescriptors()
+// Both started and stopped. To get a count of running watch descriptors, use GetRunningDescriptors
 func (w *Watcher) ListDescriptors() []string {
 	list := make([]string, 0)
 	w.Lock()
@@ -307,7 +302,7 @@ func (w *Watcher) RemoveDescriptor(path string) error {
 	defer w.Unlock()
 	descriptor := w.Descriptors[path]
 	if descriptor.DoesPathExist() == true {
-		if err := descriptor.Stop(descriptor.WatchDescriptor); err != nil {
+		if err := descriptor.Stop(); err != nil {
 			return err
 		}
 	}
@@ -317,50 +312,42 @@ func (w *Watcher) RemoveDescriptor(path string) error {
 
 // Adds a descriptor to Watcher w. The descriptor is not started
 // If w.Options.UseWatcherFlags is true, the mask argument is ignored and the mask of the Watcher is used instead
-func (w *Watcher) AddDescriptor(dirPath string, mask uint32) error {
+func (w *Watcher) AddDescriptor(dirPath string, mask uint32) (*WatchDescriptor, error) {
 	if _, err := os.Stat(dirPath); os.IsNotExist(err) {
-		return fmt.Errorf("%s: %s", ErrDescNotCreated, "directory does not exist")
+		return nil, fmt.Errorf("%s: %s", ErrDescNotCreated, "directory does not exist")
 	}
 	if w.DescriptorExists(dirPath) == true {
-		return ErrDescAlreadyExists
+		return nil, ErrDescAlreadyExists
 	}
-	var inotifymask uint32
-	if w.Options.UseWatcherFlags == true {
-		inotifymask = w.DefaultMask
-	} else {
-		inotifymask = mask
-	}
+
+	descriptor := newWatchDescriptor(dirPath, mask, w.InotifyDescriptor)
 
 	w.Lock()
-	w.Descriptors[dirPath] = newWatchDescriptor(dirPath, inotifymask)
+	w.Descriptors[dirPath] = descriptor
 	w.Unlock()
 
-	return nil
+	return descriptor, nil
 }
 
 // Adds the directory at rootPath, and all directories below it, using the flags provided in mask
-// If w.Options.UseWatcherFlags is true, the mask argument is ignored and the mask of the Watcher is used instead
 func (w *Watcher) RecursiveAdd(rootPath string, mask uint32) error {
 	dirStat, err := ioutil.ReadDir(rootPath)
 	if err != nil {
 		return err
 	}
 
-	var inotifymask uint32
-	if w.Options.UseWatcherFlags == true {
-		inotifymask = w.DefaultMask
-	} else {
-		inotifymask = mask
-	}
-
 	for _, child := range dirStat {
 		if child.IsDir() == true {
 			childPath := path.Clean(path.Join(rootPath, child.Name()))
-			if err := w.RecursiveAdd(childPath, inotifymask); err != nil {
-				return err
+			if err := w.RecursiveAdd(childPath, mask); err != nil {
+				return fmt.Errorf("could not add recurisve-descriptor for path %q: %s\n", childPath, err.Error())
 			}
-			if err := w.AddDescriptor(childPath, inotifymask); err != nil {
-				return err
+			d, err := w.AddDescriptor(childPath, mask)
+			if err != nil {
+				return fmt.Errorf("could not add descriptor for path %q: %s\n", childPath, err.Error())
+			}
+			if err := d.Start(); err != nil {
+				return fmt.Errorf("could not start watch for path %q: %s\n", childPath, err.Error())
 			}
 		}
 	}
@@ -369,28 +356,24 @@ func (w *Watcher) RecursiveAdd(rootPath string, mask uint32) error {
 
 // Allocate a new watcher at path rootPath, with the default mask defaultMask
 // This function initializes inotify, so it must be run first
-func NewWatcher(rootPath string, defaultMask uint32, options *WatcherOptions) (*Watcher, error) {
+func NewWatcher(rootPath string, mask uint32) (*Watcher, error) {
 	fd, err := unix.InotifyInit()
 	if fd == -1 || err != nil {
 		return nil, fmt.Errorf("%s: %s", ErrWatchNotCreated, err)
 	}
+
 	w := &Watcher{
-		eventHandlers:  make([]EventHandler, 0),
-		RootPath:       path.Clean(rootPath),
-		FileDescriptor: fd,
-		DefaultMask:    defaultMask,
-		Descriptors:    make(map[string]*WatchDescriptor),
-		Events:         make(chan *FsEvent),
-		Errors:         make(chan error),
-		Options:        options,
+		eventHandlers:     make([]EventHandler, 0),
+		RootPath:          path.Clean(rootPath),
+		InotifyDescriptor: fd,
+		Descriptors:       make(map[string]*WatchDescriptor),
+		Events:            make(chan *FsEvent),
+		Errors:            make(chan error),
 	}
-	if options.Recursive == true {
-		if err := w.AddDescriptor(w.RootPath, defaultMask); err != nil {
-			return w, err
-		}
-		return w, w.RecursiveAdd(w.RootPath, defaultMask)
-	}
-	return w, w.AddDescriptor(w.RootPath, defaultMask)
+
+	_, err = w.AddDescriptor(w.RootPath, mask)
+
+	return w, err
 }
 
 // Returns the count of currently running or Start()'d descriptors for this watcher.
@@ -411,7 +394,7 @@ func (w *Watcher) StartAll() error {
 	w.Lock()
 	defer w.Unlock()
 	for _, d := range w.Descriptors {
-		if err := d.Start(w.FileDescriptor); err != nil {
+		if err := d.Start(); err != nil {
 			return err
 		}
 	}
@@ -424,7 +407,7 @@ func (w *Watcher) StopAll() error {
 	defer w.Unlock()
 	for _, d := range w.Descriptors {
 		if d.Running == true {
-			if err := d.Stop(w.FileDescriptor); err != nil {
+			if err := d.Stop(); err != nil {
 				return err
 			}
 		}
@@ -450,14 +433,13 @@ func (w *Watcher) GetDescriptorByWatch(wd int) *WatchDescriptor {
 func (w *Watcher) GetDescriptorByPath(watchPath string) *WatchDescriptor {
 	if w.DescriptorExists(watchPath) == true {
 		w.Lock()
-		defer w.Unlock()
-		return w.Descriptors[watchPath]
+		d := w.Descriptors[watchPath]
+		w.Unlock()
+		return d
 	}
 	return nil
 }
 
-// Increment internal event counter
-// For use only in-library
 func (w *Watcher) incrementEventCount() {
 	atomic.AddUint32(&w.EventCount, 1)
 }
@@ -471,7 +453,7 @@ func (w *Watcher) GetEventCount() uint32 {
 func (w *Watcher) ReadSingleEvent() (*FsEvent, error) {
 	var buffer [unix.SizeofInotifyEvent + unix.PathMax]byte
 
-	bytesRead, err := C.read(C.int(w.FileDescriptor),
+	bytesRead, err := C.read(C.int(w.InotifyDescriptor),
 		unsafe.Pointer(&buffer),
 		C.ulong(unix.SizeofInotifyEvent+unix.PathMax))
 
@@ -497,6 +479,7 @@ func (w *Watcher) ReadSingleEvent() (*FsEvent, error) {
 		Path:       eventPath,
 		Descriptor: descriptor,
 		RawEvent:   rawEvent,
+		ID:         w.GetEventCount(),
 	}
 	w.incrementEventCount()
 	return event, nil
@@ -517,16 +500,22 @@ func (w *Watcher) Watch() {
 	}
 }
 
-// Register an EventHandle with Watcher.
-func (w *Watcher) RegisterEventHandle(mask uint32, handle EventHandler) {
+// Register an EventHandler with Watcher.
+func (w *Watcher) RegisterEventHandler(handle EventHandler) error {
 	w.Lock()
 	defer w.Unlock()
 
+	for _, existingHandle := range w.eventHandlers {
+		if existingHandle.GetMask() == handle.GetMask() {
+			return ErrHandleExists
+		}
+	}
 	w.eventHandlers = append(w.eventHandlers, handle)
+	return nil
 }
 
 // Remove an EventHandle from a Watcher's EventHandle list
-func (w *Watcher) UnregisterEventHandle(removeMask uint32) {
+func (w *Watcher) UnregisterEventHandler(removeMask uint32) {
 	w.Lock()
 	defer w.Unlock()
 
@@ -552,15 +541,19 @@ func (w *Watcher) getEventHandle(event *FsEvent) EventHandler {
 	return nil
 }
 
-// WatchAndHandle calls ReadSingleEvent to read an event, passing it to getEventHandle to retrieve
-// the correct handle for the event mask. Errors returned by the event's Handle  are written to w.Errors
-// The event is not written to the w.Events channel
-//
-// If there is no handle registered to handle a specific event in the Watcher, WatchAndHandle immediately writes
-// ErrNoSuchHandle to the w.Errors channel and returns
-// If there are no running watch descriptors, WatchAndHandle immediately writes ErrNoRunningDescriptors to w.Errors and returns
-// If there are no registered EventHandles in the Watcher, WatchAndHandle immediately writes ErrNoEventHandles to w.Errors and returns
-func (w *Watcher) WatchAndHandle() error {
+/*
+WatchAndHandle calls ReadSingleEvent to read an event, passing it to getEventHandle to retrieve
+the correct handle for the event mask. Errors returned by the event's Handle are written to w.Errors
+The event is *not* written to the w.Events channel
+
+If there is no handle registered to handle a specific event in the Watcher, WatchAndHandle immediately writes
+ErrNoSuchHandle to the w.Errors channel and returns
+
+If there are no running watch descriptors, WatchAndHandle immediately writes ErrNoRunningDescriptors to w.Errors and returns
+
+If there are no registered EventHandles in the Watcher, WatchAndHandle immediately writes ErrNoEventHandles to w.Errors and returns
+*/
+func (w *Watcher) WatchAndHandle() {
 	for w.GetRunningDescriptors() > 0 && len(w.eventHandlers) > 0 {
 		event, err := w.ReadSingleEvent()
 		if err != nil {
@@ -587,5 +580,4 @@ func (w *Watcher) WatchAndHandle() error {
 	if len(w.eventHandlers) == 0 {
 		w.Errors <- ErrNoEventHandles
 	}
-	return nil
 }
