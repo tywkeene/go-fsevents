@@ -11,10 +11,10 @@ Unlike other inotify packages, go-fsevents provides a recursive watcher, allowin
 ## Features
 - Single directory event monitoring
 - Recursive directory tree event monitoring
-- Start and stop watches on the fly
-- Multiple watches, one file descriptor
+- EventHandle interface to allow for clean and concise handling of events
 - Access to the underlying raw inotify event through the [unix](https://godoc.org/golang.org/x/sys/unix) package
 - Predefined event translations. No need to fuss with raw inotify flags.
+- Concurrency safe
 
 ## Quickstart
 
