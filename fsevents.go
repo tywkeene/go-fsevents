@@ -14,6 +14,7 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
+	"time"
 	"unsafe"
 
 	"golang.org/x/sys/unix"
@@ -43,6 +44,8 @@ type FsEvent struct {
 	Descriptor *WatchDescriptor
 	// The serial ID of this event. ID is incremented in ReadSingleEvent upon successful event read
 	ID uint32
+	// Timestamp of the time the event occured
+	Timestamp time.Time
 }
 
 // The EventHandle interface allows for the Watcher to apply pre-registered functions in response to an event.
@@ -480,6 +483,7 @@ func (w *Watcher) ReadSingleEvent() (*FsEvent, error) {
 		Descriptor: descriptor,
 		RawEvent:   rawEvent,
 		ID:         w.GetEventCount(),
+		Timestamp:  time.Now(),
 	}
 	w.incrementEventCount()
 	return event, nil

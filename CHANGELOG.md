@@ -138,3 +138,8 @@ Refactored Stop and Start WatchDescriptor methods to not require the inotify fil
 Added ID field to FsEvent to allow for differentiation between events and discerning what event came when.
 
 Split example code into examples/handle and examples/loop to show different ways to use go-fsevents
+
+## Sun 24 Mar 2019 06:02:03 PM MDT Version: 0.0.28
+
+Added time.Time timestamp to FsEvent object
+
