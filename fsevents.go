@@ -44,7 +44,7 @@ type FsEvent struct {
 	Descriptor *WatchDescriptor
 	// The serial ID of this event. ID is incremented in ReadSingleEvent upon successful event read
 	ID uint32
-	// Timestamp of the time the event occured
+	// Timestamp of the time the event occured in UTC
 	Timestamp time.Time
 }
 
@@ -483,7 +483,7 @@ func (w *Watcher) ReadSingleEvent() (*FsEvent, error) {
 		Descriptor: descriptor,
 		RawEvent:   rawEvent,
 		ID:         w.GetEventCount(),
-		Timestamp:  time.Now(),
+		Timestamp:  time.Now().UTC(),
 	}
 	w.incrementEventCount()
 	return event, nil

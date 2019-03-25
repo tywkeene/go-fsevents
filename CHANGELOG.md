@@ -143,3 +143,6 @@ Split example code into examples/handle and examples/loop to show different ways
 
 Added time.Time timestamp to FsEvent object
 
+## Sun 24 Mar 2019 06:05:54 PM MDT Version: 0.0.29
+
+Changed FsEvent timestamp to UTC instead of local
