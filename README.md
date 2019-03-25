@@ -30,4 +30,8 @@ You have been warned.
 
 ## Quickstart
 
-See [example/example.go](https://github.com/tywkeene/go-fsevents/blob/master/example/example.go) to get an idea of how to use go-fsevents
+See the examples in [examples](https://github.com/tywkeene/go-fsevents/blob/master/examples) to get an idea of how to use go-fsevents
+
+`handlers.go` describes how to use the `EventHandlers` interface to handle events automatically
+
+`loop.go` describes how to read events from the `watcher.Events` channel
