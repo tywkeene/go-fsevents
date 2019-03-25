@@ -193,7 +193,7 @@ func (e *FsEvent) IsRootMoved(rootPath string) bool {
 
 // Custom directory events
 
-// IsDirChanted returns true if the event describes a directory that
+// IsDirChanged returns true if the event describes a directory that
 // was closed with write permissions, modified, or its attributes changed
 func (e *FsEvent) IsDirChanged() bool {
 	return ((CheckMask(CloseWrite, e.RawEvent.Mask) == true) && (e.IsDirEvent() == true)) ||
@@ -292,7 +292,7 @@ func (w *Watcher) DescriptorExists(watchPath string) bool {
 	return false
 }
 
-// ListDescriptor returns a string array of all WatchDescriptors in w *Watcher
+// ListDescriptors returns a string array of all WatchDescriptors in w *Watcher
 // Both started and stopped. To get a count of running watch descriptors, use GetRunningDescriptors
 func (w *Watcher) ListDescriptors() []string {
 	list := make([]string, 0)
