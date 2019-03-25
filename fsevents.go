@@ -20,6 +20,7 @@ import (
 	"golang.org/x/sys/unix"
 )
 
+// WatchDescriptor describes a path being watched
 type WatchDescriptor struct {
 	// The path of this descriptor
 	Path string
@@ -33,6 +34,7 @@ type WatchDescriptor struct {
 	InotifyDescriptor *int
 }
 
+// FsEvent is an inotify event along with the ID and timestamp of the event
 type FsEvent struct {
 	// The name of the event's file
 	Name string
@@ -44,11 +46,11 @@ type FsEvent struct {
 	Descriptor *WatchDescriptor
 	// The serial ID of this event. ID is incremented in ReadSingleEvent upon successful event read
 	ID uint32
-	// Timestamp of the time the event occured in UTC
+	// Timestamp of the time the event occurred in UTC
 	Timestamp time.Time
 }
 
-// The EventHandle interface allows for the Watcher to apply pre-registered functions in response to an event.
+// EventHandler allows for the Watcher to apply pre-registered functions in response to an event.
 type EventHandler interface {
 	// The Handle method is called by WatchAndHandle in response to a given event
 	Handle(w *Watcher, event *FsEvent) error
@@ -59,6 +61,7 @@ type EventHandler interface {
 	GetMask() uint32
 }
 
+// Watcher is the top-level object that handles EventHandlers and Watchers.
 type Watcher struct {
 	sync.Mutex
 	// List of EventHandles that have been registered with this Watcher
@@ -155,19 +158,19 @@ var (
 	RootEvent = RootDelete | RootMove
 )
 
-// CheckMask() returns true if flag 'check' is found in bitmask 'mask'
+// CheckMask returns true if flag 'check' is found in bitmask 'mask'
 func CheckMask(check uint32, mask uint32) bool {
 	return (mask & check) != 0
 }
 
-// IsDirEvent() Returns true if the event is a directory event
+// IsDirEvent Returns true if the event is a directory event
 func (e *FsEvent) IsDirEvent() bool {
 	return CheckMask(IsDir, e.RawEvent.Mask)
 }
 
 // Root events.
 
-// IsRootDeletion() returns true if the event contains the inotify flag IN_DELETE_SELF
+// IsRootDeletion returns true if the event contains the inotify flag IN_DELETE_SELF
 // and the rootPath argument matches the path in the FsEvent structure.
 // This means the root watch directory has been deleted,
 // and there will be no more events read from the descriptor
@@ -179,7 +182,7 @@ func (e *FsEvent) IsRootDeletion(rootPath string) bool {
 	return (CheckMask(RootDelete, e.RawEvent.Mask) == true) && (rootPath == e.Path)
 }
 
-// IsRootMoved() returns true if the event contains the inotify flag IN_MOVE_SELF
+// IsRootMoved returns true if the event contains the inotify flag IN_MOVE_SELF
 // and the rootPath argument matches the path in the FsEvent structure.
 // This means the root watch directory has been moved. This may not matter
 // to you at all, and depends on how you deal with paths in your program.
@@ -190,20 +193,23 @@ func (e *FsEvent) IsRootMoved(rootPath string) bool {
 
 // Custom directory events
 
-// Directory was closed with write permissions, modified, or its attributes changed
+// IsDirChanted returns true if the event describes a directory that
+// was closed with write permissions, modified, or its attributes changed
 func (e *FsEvent) IsDirChanged() bool {
 	return ((CheckMask(CloseWrite, e.RawEvent.Mask) == true) && (e.IsDirEvent() == true)) ||
 		((CheckMask(Modified, e.RawEvent.Mask) == true) && (e.IsDirEvent() == true)) ||
 		((CheckMask(AttrChange, e.RawEvent.Mask) == true) && (e.IsDirEvent() == true))
 }
 
-// Directory created within the root watch, or moved into the root watch directory
+// IsDirCreated returns true if the event describes a directory created
+// within the root watch, or moved into the root watch directory
 func (e *FsEvent) IsDirCreated() bool {
 	return ((CheckMask(Create, e.RawEvent.Mask) == true) && (e.IsDirEvent() == true)) ||
 		((CheckMask(MovedTo, e.RawEvent.Mask) == true) && (e.IsDirEvent() == true))
 }
 
-// Directory deleted or moved out of the root watch directory
+// IsDirRemoved returns true if the event describes a directory that was
+//deleted or moved out of the root watch directory
 func (e *FsEvent) IsDirRemoved() bool {
 	return ((CheckMask(Delete, e.RawEvent.Mask) == true) && (e.IsDirEvent() == true)) ||
 		((CheckMask(MovedFrom, e.RawEvent.Mask) == true) && (e.IsDirEvent() == true))
@@ -211,19 +217,22 @@ func (e *FsEvent) IsDirRemoved() bool {
 
 // Custom file events
 
-// File was moved into, or created within the root watch directory
+// IsFileCreated returns true if the event describes a file that was moved into,
+// or created within the root watch directory
 func (e *FsEvent) IsFileCreated() bool {
 	return (((CheckMask(Create, e.RawEvent.Mask) == true) && (e.IsDirEvent() == false)) ||
 		((CheckMask(MovedTo, e.RawEvent.Mask) == true) && (e.IsDirEvent() == false)))
 }
 
-// File was deleted or moved out of the root watch directory
+// IsFileRemoved returns true if the event describes a file
+// was deleted or moved out of the root watch directory
 func (e *FsEvent) IsFileRemoved() bool {
 	return ((CheckMask(Delete, e.RawEvent.Mask) == true) && (e.IsDirEvent() == false) ||
 		((CheckMask(MovedFrom, e.RawEvent.Mask) == true) && (e.IsDirEvent() == false)))
 }
 
-// File was closed with write permissions, modified, or its attributes changed
+// IsFileChanged returns true if the event describes a file that was
+// closed with write permissions, modified, or its attributes changed
 func (e *FsEvent) IsFileChanged() bool {
 	return ((CheckMask(CloseWrite, e.RawEvent.Mask) == true) && (e.IsDirEvent() == false)) ||
 		((CheckMask(Modified, e.RawEvent.Mask) == true) && (e.IsDirEvent() == false)) ||
@@ -254,7 +263,7 @@ func (d *WatchDescriptor) Start() error {
 	return nil
 }
 
-// Stop a running watch descriptor. If the descriptor is not running Stop returns ErrDescNotRunning
+// Stop stops a running watch descriptor. If the descriptor is not running Stop returns ErrDescNotRunning
 func (d *WatchDescriptor) Stop() error {
 	if d.Running == false {
 		return ErrDescNotRunning
@@ -267,13 +276,13 @@ func (d *WatchDescriptor) Stop() error {
 	return nil
 }
 
-// Returns true if the path described by the descriptor exists
+// DoesPathExist returns true if the path described by the descriptor exists
 func (d *WatchDescriptor) DoesPathExist() bool {
 	_, err := os.Lstat(d.Path)
 	return os.IsExist(err)
 }
 
-// Returns true if a WatchDescriptor exists in w.Descriptors, false otherwise
+// DescriptorExists returns true if a WatchDescriptor exists in Watcher w, false otherwise
 func (w *Watcher) DescriptorExists(watchPath string) bool {
 	w.Lock()
 	defer w.Unlock()
@@ -283,7 +292,7 @@ func (w *Watcher) DescriptorExists(watchPath string) bool {
 	return false
 }
 
-// Returns a string array of all WatchDescriptors in w *Watcher
+// ListDescriptor returns a string array of all WatchDescriptors in w *Watcher
 // Both started and stopped. To get a count of running watch descriptors, use GetRunningDescriptors
 func (w *Watcher) ListDescriptors() []string {
 	list := make([]string, 0)
@@ -295,8 +304,8 @@ func (w *Watcher) ListDescriptors() []string {
 	return list
 }
 
-// Removes the WatchDescriptor with the path matching path from the watcher,
-// and stops the inotify watcher
+// RemoveDescriptor removes the WatchDescriptor with the path matching path
+// from the watcher, and stops the inotify watcher
 func (w *Watcher) RemoveDescriptor(path string) error {
 	if w.DescriptorExists(path) == false {
 		return ErrDescNotFound
@@ -313,8 +322,7 @@ func (w *Watcher) RemoveDescriptor(path string) error {
 	return nil
 }
 
-// Adds a descriptor to Watcher w. The descriptor is not started
-// If w.Options.UseWatcherFlags is true, the mask argument is ignored and the mask of the Watcher is used instead
+// AddDescriptor adds a descriptor to Watcher w. The descriptor is not started.
 func (w *Watcher) AddDescriptor(dirPath string, mask uint32) (*WatchDescriptor, error) {
 	if _, err := os.Stat(dirPath); os.IsNotExist(err) {
 		return nil, fmt.Errorf("%s: %s", ErrDescNotCreated, "directory does not exist")
@@ -332,7 +340,7 @@ func (w *Watcher) AddDescriptor(dirPath string, mask uint32) (*WatchDescriptor, 
 	return descriptor, nil
 }
 
-// Adds the directory at rootPath, and all directories below it, using the flags provided in mask
+// RecursiveAdd adds the directory at rootPath, and all directories below it, using the flags provided in mask
 func (w *Watcher) RecursiveAdd(rootPath string, mask uint32) error {
 	dirStat, err := ioutil.ReadDir(rootPath)
 	if err != nil {
@@ -343,21 +351,21 @@ func (w *Watcher) RecursiveAdd(rootPath string, mask uint32) error {
 		if child.IsDir() == true {
 			childPath := path.Clean(path.Join(rootPath, child.Name()))
 			if err := w.RecursiveAdd(childPath, mask); err != nil {
-				return fmt.Errorf("could not add recurisve-descriptor for path %q: %s\n", childPath, err.Error())
+				return fmt.Errorf("could not add recurisve-descriptor for path %q: %s", childPath, err.Error())
 			}
 			d, err := w.AddDescriptor(childPath, mask)
 			if err != nil {
-				return fmt.Errorf("could not add descriptor for path %q: %s\n", childPath, err.Error())
+				return fmt.Errorf("could not add descriptor for path %q: %s", childPath, err.Error())
 			}
 			if err := d.Start(); err != nil {
-				return fmt.Errorf("could not start watch for path %q: %s\n", childPath, err.Error())
+				return fmt.Errorf("could not start watch for path %q: %s", childPath, err.Error())
 			}
 		}
 	}
 	return nil
 }
 
-// Allocate a new watcher at path rootPath, with the default mask defaultMask
+// NewWatcher allocates a new watcher at path rootPath, and adds a descriptor with the mask provided
 // This function initializes inotify, so it must be run first
 func NewWatcher(rootPath string, mask uint32) (*Watcher, error) {
 	fd, err := unix.InotifyInit()
@@ -379,11 +387,11 @@ func NewWatcher(rootPath string, mask uint32) (*Watcher, error) {
 	return w, err
 }
 
-// Returns the count of currently running or Start()'d descriptors for this watcher.
+// GetRunningDescriptors returns the count of currently running or Start()'d descriptors for this watcher.
 func (w *Watcher) GetRunningDescriptors() int32 {
 	w.Lock()
 	defer w.Unlock()
-	var count int32 = 0
+	var count int32
 	for _, d := range w.Descriptors {
 		if d.Running == true {
 			count++
@@ -392,7 +400,7 @@ func (w *Watcher) GetRunningDescriptors() int32 {
 	return count
 }
 
-// Start all inotify watches described by this Watcher
+// StartAll starts all inotify watches described by this Watcher
 func (w *Watcher) StartAll() error {
 	w.Lock()
 	defer w.Unlock()
@@ -404,7 +412,7 @@ func (w *Watcher) StartAll() error {
 	return nil
 }
 
-// Stop all running watch descriptors. Does not remove descriptors from the watch
+// StopAll stops all running watch descriptors. Does not remove descriptors from the watch
 func (w *Watcher) StopAll() error {
 	w.Lock()
 	defer w.Unlock()
@@ -418,7 +426,7 @@ func (w *Watcher) StopAll() error {
 	return nil
 }
 
-// Searches a Watcher instance for a watch descriptor.
+// GetDescriptorByWatch searches a Watcher instance for a watch descriptor.
 // Searches by inotify watch descriptor
 func (w *Watcher) GetDescriptorByWatch(wd int) *WatchDescriptor {
 	w.Lock()
@@ -431,7 +439,7 @@ func (w *Watcher) GetDescriptorByWatch(wd int) *WatchDescriptor {
 	return nil
 }
 
-// Searches a Watcher instance for a watch descriptor.
+// GetDescriptorByPath searches Watcher w for a watch descriptor.
 // Searches by WatchDescriptor's path
 func (w *Watcher) GetDescriptorByPath(watchPath string) *WatchDescriptor {
 	if w.DescriptorExists(watchPath) == true {
@@ -447,12 +455,12 @@ func (w *Watcher) incrementEventCount() {
 	atomic.AddUint32(&w.EventCount, 1)
 }
 
-// Get atomic counter tracking the count of events for this watcher. atomic/thread-safe.
+// GetEventCount returns the atomic counter tracking the count of events for this Watcher. atomic/thread-safe.
 func (w *Watcher) GetEventCount() uint32 {
 	return atomic.LoadUint32(&w.EventCount)
 }
 
-// Read a single event from the watch descriptor.
+// ReadSingleEvent reads and returns a single event from the watch descriptor.
 func (w *Watcher) ReadSingleEvent() (*FsEvent, error) {
 	var buffer [unix.SizeofInotifyEvent + unix.PathMax]byte
 
@@ -489,7 +497,7 @@ func (w *Watcher) ReadSingleEvent() (*FsEvent, error) {
 	return event, nil
 }
 
-// Read events from the inotify watch descriptor while there are running watches
+// Watch calls ReadSingleEvent (which read-blocks) in a loop while there are running WatchDescriptors in Watcher w
 // Writes events and errors to the channels w.Errors and w.Events
 func (w *Watcher) Watch() {
 	for w.GetRunningDescriptors() > 0 {
@@ -504,7 +512,8 @@ func (w *Watcher) Watch() {
 	}
 }
 
-// Register an EventHandler with Watcher.
+// RegisterEventHandler registers an EventHandler with Watcher.
+// The EventHandler handle will be applied to any event read by WatchAndHandle matching its mask
 func (w *Watcher) RegisterEventHandler(handle EventHandler) error {
 	w.Lock()
 	defer w.Unlock()
@@ -518,7 +527,8 @@ func (w *Watcher) RegisterEventHandler(handle EventHandler) error {
 	return nil
 }
 
-// Remove an EventHandle from a Watcher's EventHandle list
+// UnregisterEventHandler Remove an EventHandle from a Watcher's EventHandle list
+// The EventHandler handle will no longer applied to any event read by WatchAndHandle
 func (w *Watcher) UnregisterEventHandler(removeMask uint32) {
 	w.Lock()
 	defer w.Unlock()
@@ -533,7 +543,7 @@ func (w *Watcher) UnregisterEventHandler(removeMask uint32) {
 	}
 }
 
-// Return the EventHandle matching event.RawEvent.Mask
+// getEventHandle returns the EventHandle matching event.RawEvent.Mask
 func (w *Watcher) getEventHandle(event *FsEvent) EventHandler {
 	w.Lock()
 	defer w.Unlock()
@@ -573,7 +583,7 @@ func (w *Watcher) WatchAndHandle() {
 					w.Errors <- returnErr
 				}
 			} else {
-				w.Errors <- fmt.Errorf("%s: event mask: %d\n", ErrNoSuchHandle, event.RawEvent.Mask)
+				w.Errors <- fmt.Errorf("%s: event mask: %d", ErrNoSuchHandle, event.RawEvent.Mask)
 			}
 		}
 	}
