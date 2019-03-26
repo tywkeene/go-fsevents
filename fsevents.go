@@ -560,14 +560,11 @@ func (w *Watcher) getEventHandle(event *FsEvent) EventHandler {
 /*
 WatchAndHandle calls ReadSingleEvent to read an event, passing it to getEventHandle to retrieve
 the correct handle for the event mask. Errors returned by the event's Handle are written to w.Errors
-The event is *not* written to the w.Events channel
-
+The event is *not* written to the w.Events channel.
 If there is no handle registered to handle a specific event in the Watcher, WatchAndHandle immediately writes
-ErrNoSuchHandle to the w.Errors channel and returns
-
-If there are no running watch descriptors, WatchAndHandle immediately writes ErrNoRunningDescriptors to w.Errors and returns
-
-If there are no registered EventHandles in the Watcher, WatchAndHandle immediately writes ErrNoEventHandles to w.Errors and returns
+ErrNoSuchHandle to the w.Errors channel and returns.
+If there are no running watch descriptors, WatchAndHandle immediately writes ErrNoRunningDescriptors to w.Errors and returns.
+If there are no registered EventHandles in the Watcher, WatchAndHandle immediately writes ErrNoEventHandles to w.Errors and returns.
 */
 func (w *Watcher) WatchAndHandle() {
 	for w.GetRunningDescriptors() > 0 && len(w.eventHandlers) > 0 {
