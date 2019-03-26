@@ -267,3 +267,62 @@ func TestAddDescriptor(t *testing.T) {
 	eq(t, (err == fsevents.ErrDescAlreadyExists), fmt.Errorf("AddDescriptor should have returned error on duplicate descriptor"))
 	eq(t, (len(w.ListDescriptors()) == 2), fmt.Errorf("ListDescriptors should have returned 1"))
 }
+
+type fileCreatedHandler struct {
+	Mask uint32
+}
+
+func (h *fileCreatedHandler) Handle(w *fsevents.Watcher, event *fsevents.FsEvent) error {
+	fmt.Println("File created:", event.Path)
+	return nil
+}
+
+// GetMask returns the inotify event mask this EventHandler handles
+func (h *fileCreatedHandler) GetMask() uint32 {
+	return h.Mask
+}
+
+func (h *fileCreatedHandler) Check(event *fsevents.FsEvent) bool {
+	return event.IsFileCreated()
+}
+
+func TestUnregisterEventHandler(t *testing.T) {
+	var w *fsevents.Watcher
+	var err error
+
+	os.Mkdir(testRootDir, 0777)
+
+	w, err = fsevents.NewWatcher(testRootDir, fsevents.AllEvents)
+	eq(t, (w != nil), fmt.Errorf("NewWatcher should have returned non-nil Watcher"))
+	eq(t, (err == nil), err)
+
+	err = w.UnregisterEventHandler(fsevents.FileCreatedEvent)
+	eq(t, (err != nil), err)
+
+	err = w.RegisterEventHandler(&fileCreatedHandler{Mask: fsevents.FileCreatedEvent})
+	eq(t, (err == nil), err)
+
+	err = w.UnregisterEventHandler(fsevents.FileCreatedEvent)
+	eq(t, (err == nil), err)
+
+	os.RemoveAll(testRootDir)
+}
+
+func TestRegisterEventHandler(t *testing.T) {
+	var w *fsevents.Watcher
+	var err error
+
+	os.Mkdir(testRootDir, 0777)
+
+	w, err = fsevents.NewWatcher(testRootDir, fsevents.AllEvents)
+	eq(t, (w != nil), fmt.Errorf("NewWatcher should have returned non-nil Watcher"))
+	eq(t, (err == nil), err)
+
+	err = w.RegisterEventHandler(&fileCreatedHandler{Mask: fsevents.FileCreatedEvent})
+	eq(t, (err == nil), err)
+
+	err = w.RegisterEventHandler(&fileCreatedHandler{Mask: fsevents.FileCreatedEvent})
+	eq(t, (err != nil), err)
+
+	os.RemoveAll(testRootDir)
+}
