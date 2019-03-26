@@ -529,7 +529,7 @@ func (w *Watcher) RegisterEventHandler(handle EventHandler) error {
 
 // UnregisterEventHandler Remove an EventHandle from a Watcher's EventHandle list
 // The EventHandler handle will no longer applied to any event read by WatchAndHandle
-func (w *Watcher) UnregisterEventHandler(removeMask uint32) {
+func (w *Watcher) UnregisterEventHandler(removeMask uint32) error {
 	w.Lock()
 	defer w.Unlock()
 
@@ -539,8 +539,10 @@ func (w *Watcher) UnregisterEventHandler(removeMask uint32) {
 				w.eventHandlers = w.eventHandlers[:len(w.eventHandlers)-1]
 			}
 			w.eventHandlers = append(w.eventHandlers[:index], w.eventHandlers[index+1:]...)
+			return nil
 		}
 	}
+	return fmt.Errorf("%s: event mask: %d", ErrNoSuchHandle, removeMask)
 }
 
 // getEventHandle returns the EventHandle matching event.RawEvent.Mask

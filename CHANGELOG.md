@@ -146,3 +146,7 @@ Added time.Time timestamp to FsEvent object
 ## Sun 24 Mar 2019 06:05:54 PM MDT Version: 0.0.29
 
 Changed FsEvent timestamp to UTC instead of local
+
+## Mon 25 Mar 2019 09:03:07 PM MDT Version: 0.0.30
+
+Make UnregisterEventHandle return an error if we try to remove a handler that doesn't exit
