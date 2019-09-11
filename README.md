@@ -9,7 +9,7 @@
 
 To help me gauge the usage and needs of everyone using go-fsevents, I'm doing a short survey to gain insight into how go-fsevents is being used, who is using it, and how I can improve it. I greatly appreciate your participation.
 
-[Survey Here](https://forms.gle/jGvayrjk1VakGzDR6)
+[Survey Here](https://forms.gle/gTFgqHXRUkKfzV639)
 
 # About
 
