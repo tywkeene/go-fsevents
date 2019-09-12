@@ -15,7 +15,7 @@ To help me gauge the usage and needs of everyone using go-fsevents, I'm doing a 
 
 Recursive filesystem event watcher using inotify in golang
 
-go-fsevents provides functions necessary for monitoring filesystem events on linux systems using the inotify interface.
+go-fsevents provides functions necessary for monitoring filesystem events on Linux systems using the [inotify interface](https://en.wikipedia.org/wiki/Inotify).
 
 Unlike other inotify packages, go-fsevents provides a recursive watcher, allowing the monitoring of directory trees easily.
 
