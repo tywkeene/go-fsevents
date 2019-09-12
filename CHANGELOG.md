@@ -150,3 +150,7 @@ Changed FsEvent timestamp to UTC instead of local
 ## Mon 25 Mar 2019 09:03:07 PM MDT Version: 0.0.30
 
 Make UnregisterEventHandle return an error if we try to remove a handler that doesn't exit
+
+## Thu 12 Sep 2019 12:42:12 PM MDT Version: 0.0.31
+
+Added support for go modules
