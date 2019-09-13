@@ -1,3 +1,4 @@
+./bin
 *.swp
 *.swo
 .vim-bookmarks
