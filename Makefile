@@ -3,6 +3,7 @@ all: handles-example loop-example
 clean:
 	rm -rf ./bin
 	rm -f cover.*
+	rm -rf ./test ./test2
 
 loop-example:
 	mkdir -p bin
