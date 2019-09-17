@@ -233,6 +233,27 @@ func TestMasks(t *testing.T) {
 	assert(t, (err == nil), err)
 }
 
+func TestRemoveWatchDescriptor(t *testing.T) {
+	var err error
+	err = setupDirs([]string{testRootDir})
+	assert(t, (err == nil), err)
+
+	w, err := fsevents.NewWatcher(testRootDir, fsevents.AllEvents)
+	assert(t, (w != nil), fmt.Errorf("NewWatcher should have returned a non-nil Watcher"))
+	assert(t, (err == nil), err)
+
+	d, err := w.AddDescriptor(testRootDir, fsevents.AllEvents)
+	assert(t, (d != nil), fmt.Errorf("AddDescriptor should have returned non-nil descriptor"))
+	assert(t, (err != fsevents.ErrDescAlreadyExists), fmt.Errorf("AddDescriptor should have returned error on duplicate descriptor"))
+
+	// RemoveDescriptor SHOULD return non-nil when removing an existing descriptor
+	err = w.RemoveDescriptor(d.Path)
+	assert(t, (err == nil), fmt.Errorf("RemoveDescriptor should have returned nil error upon removal of existing descriptor"))
+
+	err = teardownDirs([]string{testRootDir})
+	assert(t, (err == nil), err)
+}
+
 func TestCustomMaskChecks(t *testing.T) {
 
 	var events = map[string]*fsevents.FsEvent{
@@ -259,9 +280,9 @@ func TestCustomMaskChecks(t *testing.T) {
 		},
 	}
 
-	// Loop through FsEvent's methods and test ensure that each return true
+	// Loop through FsEvent's methods and test each to ensure that each return true
 	for methodName, event := range events {
-		t.Log("Testing FsEvent method:", methodName)
+		t.Log("Running test for FsEvent method:", methodName)
 		returnVal := reflect.ValueOf(event).MethodByName(methodName).Call(nil)
 		assert(t, (returnVal[0].Bool() == true), fmt.Errorf("FsEvent method %q should have returned true", methodName))
 	}
@@ -313,8 +334,14 @@ func TestStart(t *testing.T) {
 	d := w.GetDescriptorByPath(w.RootPath)
 	assert(t, (d != nil), fmt.Errorf("GetDescriptorByPath should have returned non-nil descriptor"))
 
-	d.Start()
+	// Trying to start a new descriptor SHOULD NOT return error
+	err = d.Start()
+	assert(t, (err == nil), err)
 	assert(t, (w.GetRunningDescriptors() == 1), fmt.Errorf("GetRunningDescriptor should have returned 1"))
+
+	// Trying to start an already running descriptor SHOULD return error
+	err = d.Start()
+	assert(t, (err != nil), fmt.Errorf("Start should have returned error %q", fsevents.ErrDescNotStart))
 
 	err = teardownDirs([]string{testRootDir})
 	assert(t, (err == nil), err)
@@ -335,6 +362,7 @@ func TestAddDescriptor(t *testing.T) {
 	// AddDescriptor SHOULD return ErrDescNotCreated if we try to add a WatchDescriptor for a directory that does not exist
 	d, err := w.AddDescriptor("not_there/", fsevents.AllEvents)
 	assert(t, (d == nil), fmt.Errorf("AddDescriptor should have returned nil descriptor"))
+
 	expectedErr := fmt.Errorf("%s: %s", fsevents.ErrDescNotCreated, "directory does not exist").Error()
 	assert(t, (err.Error() == expectedErr), err)
 	assert(t, (len(w.ListDescriptors()) == 1), fmt.Errorf("ListDescriptors should have returned 1"))
@@ -388,7 +416,6 @@ func (h *fileCreatedHandler) Handle(w *fsevents.Watcher, event *fsevents.FsEvent
 	return nil
 }
 
-// GetMask returns the inotify event mask this EventHandler handles
 func (h *fileCreatedHandler) GetMask() uint32 {
 	return h.Mask
 }
@@ -401,39 +428,51 @@ func TestUnregisterEventHandler(t *testing.T) {
 	var w *fsevents.Watcher
 	var err error
 
-	os.Mkdir(testRootDir, 0777)
+	err = setupDirs([]string{testRootDir})
+	assert(t, (err == nil), err)
 
 	w, err = fsevents.NewWatcher(testRootDir, fsevents.AllEvents)
 	assert(t, (w != nil), fmt.Errorf("NewWatcher should have returned non-nil Watcher"))
 	assert(t, (err == nil), err)
 
+	// UnregisterEventHandler SHOULD return an error when attempting to remove a non-existant handle
 	err = w.UnregisterEventHandler(fsevents.FileCreatedEvent)
 	assert(t, (err != nil), err)
 
+	// RegisterEventHandler SHOULD NOT return an error when attempting to register a non-existant handle
 	err = w.RegisterEventHandler(&fileCreatedHandler{Mask: fsevents.FileCreatedEvent})
+	assert(t, (err == nil), err)
+
+	// RegisterEventHandler SHOULD return an error when attempting to register an existing handle
+	err = w.RegisterEventHandler(&fileCreatedHandler{Mask: fsevents.FileChangedEvent})
 	assert(t, (err == nil), err)
 
 	err = w.UnregisterEventHandler(fsevents.FileCreatedEvent)
 	assert(t, (err == nil), err)
 
-	os.RemoveAll(testRootDir)
+	err = teardownDirs([]string{testRootDir})
+	assert(t, (err == nil), err)
 }
 
 func TestRegisterEventHandler(t *testing.T) {
 	var w *fsevents.Watcher
 	var err error
 
-	os.Mkdir(testRootDir, 0777)
+	err = setupDirs([]string{testRootDir})
+	assert(t, (err == nil), err)
 
 	w, err = fsevents.NewWatcher(testRootDir, fsevents.AllEvents)
 	assert(t, (w != nil), fmt.Errorf("NewWatcher should have returned non-nil Watcher"))
 	assert(t, (err == nil), err)
 
-	err = w.RegisterEventHandler(&fileCreatedHandler{Mask: fsevents.FileCreatedEvent})
+	handle := &fileCreatedHandler{Mask: fsevents.FileCreatedEvent}
+
+	err = w.RegisterEventHandler(handle)
 	assert(t, (err == nil), err)
 
-	err = w.RegisterEventHandler(&fileCreatedHandler{Mask: fsevents.FileCreatedEvent})
+	err = w.RegisterEventHandler(handle)
 	assert(t, (err != nil), err)
 
-	os.RemoveAll(testRootDir)
+	err = teardownDirs([]string{testRootDir})
+	assert(t, (err == nil), err)
 }
