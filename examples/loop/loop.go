@@ -9,11 +9,6 @@ import (
 
 func handleEvents(w *fsevents.Watcher) error {
 
-	//Start all the watch descriptors. Multiple descriptors can be added before calling StartAll
-	if err := w.StartAll(); err != nil {
-		return err
-	}
-
 	// Watch for events
 	go w.Watch()
 	log.Println("Waiting for events...")
@@ -30,7 +25,7 @@ func handleEvents(w *fsevents.Watcher) error {
 			if event.IsDirCreated() == true {
 				log.Println("Directory created:", event.Path)
 				// A Watcher can be used dynamically in response to events to add/modify/delete WatchDescriptors
-				d, err := w.AddDescriptor(event.Path, 0)
+				d, err := w.AddDescriptor(event.Path, fsevents.DirCreatedEvent)
 				if err != nil {
 					log.Printf("Error adding descriptor for path %q: %s\n", event.Path, err)
 					break
@@ -40,6 +35,7 @@ func handleEvents(w *fsevents.Watcher) error {
 					log.Printf("Error starting descriptor for path %q: %s\n", event.Path, err)
 					break
 				}
+				log.Printf("Watch started for newly created directory %q\n", event.Path)
 			}
 
 			if event.IsDirRemoved() == true {
@@ -68,18 +64,28 @@ func main() {
 	if len(os.Args) == 1 {
 		panic("Must specify directory to watch")
 	}
-	var watchDir string = os.Args[1]
+	watchDir := os.Args[1]
 	// You might need to play with these flags to get the events you want
 	// You can use these pre-defined flags that are declared in fsevents.go,
 	// or the original inotify flags declared in the golang.org/x/sys/unix package
 
-	var inotifyFlags uint32 = fsevents.DirCreatedEvent | fsevents.DirRemovedEvent |
+	var mask uint32 = fsevents.DirCreatedEvent | fsevents.DirRemovedEvent |
 		fsevents.FileCreatedEvent | fsevents.FileRemovedEvent | fsevents.FileChangedEvent
 
-	w, err := fsevents.NewWatcher(watchDir, inotifyFlags)
+	w, err := fsevents.NewWatcher()
 	if err != nil {
 		panic(err)
 	}
+
+	d, err := w.AddDescriptor(watchDir, mask)
+	if err != nil {
+		panic(err)
+	}
+
+	if err := d.Start(); err != nil {
+		panic(err)
+	}
+
 	if err := handleEvents(w); err != nil {
 		log.Fatalf("Error handling events: %s", err.Error())
 	}

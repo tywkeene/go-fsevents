@@ -66,8 +66,6 @@ type Watcher struct {
 	sync.Mutex
 	// List of EventHandles that have been registered with this Watcher
 	eventHandlers []EventHandler
-	// The root path of this watcher
-	RootPath string
 	// The main inotify descriptor
 	InotifyDescriptor int
 	// Watch descriptors in this watch key: watch path -> value: WatchDescriptor
@@ -365,9 +363,9 @@ func (w *Watcher) RecursiveAdd(rootPath string, mask uint32) error {
 	return nil
 }
 
-// NewWatcher allocates a new watcher at path rootPath, and adds a descriptor with the mask provided
-// This function initializes inotify, so it must be run first
-func NewWatcher(rootPath string, mask uint32) (*Watcher, error) {
+// NewWatcher allocates a new watcher and initializes an inotify descriptor and the w.Events and w.Error channels,
+// so it should be ran before running descriptor.Start()
+func NewWatcher() (*Watcher, error) {
 	fd, err := unix.InotifyInit()
 	if fd == -1 || err != nil {
 		return nil, fmt.Errorf("%s: %s", ErrWatchNotCreated, err)
@@ -375,14 +373,11 @@ func NewWatcher(rootPath string, mask uint32) (*Watcher, error) {
 
 	w := &Watcher{
 		eventHandlers:     make([]EventHandler, 0),
-		RootPath:          path.Clean(rootPath),
 		InotifyDescriptor: fd,
 		Descriptors:       make(map[string]*WatchDescriptor),
 		Events:            make(chan *FsEvent),
 		Errors:            make(chan error),
 	}
-
-	_, err = w.AddDescriptor(w.RootPath, mask)
 
 	return w, err
 }
@@ -536,9 +531,11 @@ func (w *Watcher) UnregisterEventHandler(removeMask uint32) error {
 	for index, handler := range w.eventHandlers {
 		if handler.GetMask() == removeMask {
 			if (index + 1) > len(w.eventHandlers) {
+				// Check and remove the handler if it's the last element
 				w.eventHandlers = w.eventHandlers[:len(w.eventHandlers)-1]
+			} else {
+				w.eventHandlers = append(w.eventHandlers[:index], w.eventHandlers[index+1:]...)
 			}
-			w.eventHandlers = append(w.eventHandlers[:index], w.eventHandlers[index+1:]...)
 			return nil
 		}
 	}
@@ -557,15 +554,13 @@ func (w *Watcher) getEventHandle(event *FsEvent) EventHandler {
 	return nil
 }
 
-/*
-WatchAndHandle calls ReadSingleEvent to read an event, passing it to getEventHandle to retrieve
-the correct handle for the event mask. Errors returned by the event's Handle are written to w.Errors
-The event is *not* written to the w.Events channel.
-If there is no handle registered to handle a specific event in the Watcher, WatchAndHandle immediately writes
-ErrNoSuchHandle to the w.Errors channel and returns.
-If there are no running watch descriptors, WatchAndHandle immediately writes ErrNoRunningDescriptors to w.Errors and returns.
-If there are no registered EventHandles in the Watcher, WatchAndHandle immediately writes ErrNoEventHandles to w.Errors and returns.
-*/
+// WatchAndHandle calls ReadSingleEvent to read an event, passing it to getEventHandle to retrieve
+// the correct handle for the event mask. Errors returned by the event's Handle are written to w.Errors
+// The event is *not* written to the w.Events channel.
+// If there is no handle registered to handle a specific event in the Watcher, WatchAndHandle immediately writes
+// ErrNoSuchHandle to the w.Errors channel and returns.
+// If there are no running watch descriptors, WatchAndHandle immediately writes ErrNoRunningDescriptors to w.Errors and returns.
+// If there are no registered EventHandles in the Watcher, WatchAndHandle immediately writes ErrNoEventHandles to w.Errors and returns.
 func (w *Watcher) WatchAndHandle() {
 	for w.GetRunningDescriptors() > 0 && len(w.eventHandlers) > 0 {
 		event, err := w.ReadSingleEvent()
@@ -578,8 +573,7 @@ func (w *Watcher) WatchAndHandle() {
 				err := h.Handle(w, event)
 
 				if err != nil {
-					returnErr := errors.New(ErrHandleError.Error() + ": " + err.Error())
-					w.Errors <- returnErr
+					w.Errors <- errors.New(ErrHandleError.Error() + ": " + err.Error())
 				}
 			} else {
 				w.Errors <- fmt.Errorf("%s: event mask: %d", ErrNoSuchHandle, event.RawEvent.Mask)

@@ -173,30 +173,24 @@ func writeRandomFile(path string) error {
 	return err
 }
 
-func setupDirs(paths []string) error {
+func setupDirs(paths []string) {
 	for _, path := range paths {
-		if err := os.Mkdir(path, 0777); err != nil {
-			return fmt.Errorf("Failed to create directory %q: %s\n", path, err.Error())
-		}
+		os.Mkdir(path, 0777)
 	}
-	return nil
 }
 
-func teardownDirs(paths []string) error {
+func teardownDirs(paths []string) {
 	for _, path := range paths {
-		if err := os.RemoveAll(path); err != nil {
-			return fmt.Errorf("Failed to remove directory %q: %s\n", path, err.Error())
-		}
+		os.RemoveAll(path)
 	}
-	return nil
 }
 
 func TestMasks(t *testing.T) {
 	var w *fsevents.Watcher
+	var d *fsevents.WatchDescriptor
 	var err error
 
-	err = setupDirs([]string{testRootDir, testRootDir2})
-	assert(t, (err == nil), err)
+	setupDirs([]string{testRootDir, testRootDir2})
 
 	for name, maskTest := range MaskTests {
 
@@ -204,11 +198,16 @@ func TestMasks(t *testing.T) {
 		err = maskTest.Setup(maskTest.Args...)
 		assert(t, (err == nil), err)
 
-		w, err = fsevents.NewWatcher(testRootDir, maskTest.Mask)
+		w, err = fsevents.NewWatcher()
 		assert(t, (w != nil), fmt.Errorf("NewWatcher should have returned a non-nil Watcher"))
 		assert(t, (err == nil), err)
 
-		w.StartAll()
+		d, err = w.AddDescriptor(testRootDir, maskTest.Mask)
+		assert(t, (d != nil), fmt.Errorf("AddDescriptor should have returned a non-nil descriptor"))
+		assert(t, (err == nil), err)
+
+		err = d.Start()
+		assert(t, (err == nil), err)
 
 		err = maskTest.Action(maskTest.Args...)
 		assert(t, (err == nil), err)
@@ -229,16 +228,14 @@ func TestMasks(t *testing.T) {
 		w.RemoveDescriptor(testRootDir)
 	}
 
-	err = teardownDirs([]string{testRootDir, testRootDir2})
-	assert(t, (err == nil), err)
+	teardownDirs([]string{testRootDir, testRootDir2})
 }
 
 func TestRemoveWatchDescriptor(t *testing.T) {
 	var err error
-	err = setupDirs([]string{testRootDir})
-	assert(t, (err == nil), err)
+	setupDirs([]string{testRootDir})
 
-	w, err := fsevents.NewWatcher(testRootDir, fsevents.AllEvents)
+	w, err := fsevents.NewWatcher()
 	assert(t, (w != nil), fmt.Errorf("NewWatcher should have returned a non-nil Watcher"))
 	assert(t, (err == nil), err)
 
@@ -250,8 +247,7 @@ func TestRemoveWatchDescriptor(t *testing.T) {
 	err = w.RemoveDescriptor(d.Path)
 	assert(t, (err == nil), fmt.Errorf("RemoveDescriptor should have returned nil error upon removal of existing descriptor"))
 
-	err = teardownDirs([]string{testRootDir})
-	assert(t, (err == nil), err)
+	teardownDirs([]string{testRootDir})
 }
 
 func TestCustomMaskChecks(t *testing.T) {
@@ -309,30 +305,26 @@ func TestCustomMaskChecks(t *testing.T) {
 
 func TestNewWatcher(t *testing.T) {
 	var err error
-	err = setupDirs([]string{testRootDir})
-	assert(t, (err == nil), err)
+	setupDirs([]string{testRootDir})
 
-	w, err := fsevents.NewWatcher(testRootDir, fsevents.AllEvents)
+	w, err := fsevents.NewWatcher()
 	assert(t, (err == nil), err)
 	assert(t, (w != nil), fmt.Errorf("NewWatcher should have returned a non-nil Watcher"))
-	assert(t, (len(w.ListDescriptors()) == 1), fmt.Errorf("ListDescriptors should have returned 1"))
 
-	err = teardownDirs([]string{testRootDir})
-	assert(t, (err == nil), err)
+	teardownDirs([]string{testRootDir})
 }
 
 func TestStart(t *testing.T) {
 	var err error
-	err = setupDirs([]string{testRootDir})
-	assert(t, (err == nil), err)
+	setupDirs([]string{testRootDir})
 
-	w, err := fsevents.NewWatcher(testRootDir, fsevents.AllEvents)
+	w, err := fsevents.NewWatcher()
 	assert(t, (err == nil), err)
 	assert(t, (w != nil), fmt.Errorf("NewWatcher should have returned a non-nil Watcher"))
-	assert(t, (len(w.ListDescriptors()) == 1), fmt.Errorf("ListDescriptors should have returned 1"))
 
-	d := w.GetDescriptorByPath(w.RootPath)
+	d, err := w.AddDescriptor(testRootDir, fsevents.AllEvents)
 	assert(t, (d != nil), fmt.Errorf("GetDescriptorByPath should have returned non-nil descriptor"))
+	assert(t, (err == nil), err)
 
 	// Trying to start a new descriptor SHOULD NOT return error
 	err = d.Start()
@@ -343,55 +335,49 @@ func TestStart(t *testing.T) {
 	err = d.Start()
 	assert(t, (err != nil), fmt.Errorf("Start should have returned error %q", fsevents.ErrDescNotStart))
 
-	err = teardownDirs([]string{testRootDir})
-	assert(t, (err == nil), err)
+	teardownDirs([]string{testRootDir})
 }
 
 func TestAddDescriptor(t *testing.T) {
 	var w *fsevents.Watcher
 	var err error
 
-	err = setupDirs([]string{testRootDir})
-	assert(t, (err == nil), err)
+	setupDirs([]string{testRootDir})
 
-	w, err = fsevents.NewWatcher(testRootDir, fsevents.AllEvents)
+	w, err = fsevents.NewWatcher()
 	assert(t, (err == nil), err)
 	assert(t, (w != nil), fmt.Errorf("NewWatcher should have returned non-nil Watcher"))
-	assert(t, (len(w.ListDescriptors()) == 1), fmt.Errorf("ListDescriptors should have returned 1"))
 
 	// AddDescriptor SHOULD return ErrDescNotCreated if we try to add a WatchDescriptor for a directory that does not exist
 	d, err := w.AddDescriptor("not_there/", fsevents.AllEvents)
 	assert(t, (d == nil), fmt.Errorf("AddDescriptor should have returned nil descriptor"))
-
 	expectedErr := fmt.Errorf("%s: %s", fsevents.ErrDescNotCreated, "directory does not exist").Error()
 	assert(t, (err.Error() == expectedErr), err)
-	assert(t, (len(w.ListDescriptors()) == 1), fmt.Errorf("ListDescriptors should have returned 1"))
+	assert(t, (len(w.ListDescriptors()) == 0), fmt.Errorf("len(w.ListDescriptors()) should have returned 0"))
 
 	// AddDescriptor SHOULD return a non-nil WatchDescriptor and a non-nil error if we add a WatchDescriptor for a directory
 	// that exists on disk and does not already have a running watch
 	d, err = w.AddDescriptor(testRootDir, fsevents.AllEvents)
 	assert(t, (d != nil), fmt.Errorf("AddDescriptor should have returned non-nil descriptor"))
 	assert(t, (err != fsevents.ErrDescAlreadyExists), fmt.Errorf("AddDescriptor should have returned error on duplicate descriptor"))
+	assert(t, (len(w.ListDescriptors()) == 1), fmt.Errorf("len(w.ListDescriptors()) should have returned 1"))
 
-	// AddDescriptor SHOULD NOT return error if we add a WatchDescriptor for a directory that exists and is not already watched
+	// AddDescriptor SHOULD return error if we add a WatchDescriptor for a directory that exists and is not already watched
 	d, err = w.AddDescriptor(testRootDir, fsevents.AllEvents)
 	assert(t, (d == nil), fmt.Errorf("AddDescriptor should have returned nil descriptor"))
 	assert(t, (err == fsevents.ErrDescAlreadyExists), fmt.Errorf("AddDescriptor should have returned error on duplicate descriptor"))
-	assert(t, (len(w.ListDescriptors()) == 2), fmt.Errorf("ListDescriptors should have returned 1"))
+	assert(t, (len(w.ListDescriptors()) == 1), fmt.Errorf("len(w.ListDescriptors()) should have returned 1"))
 
-	err = teardownDirs([]string{testRootDir})
-	assert(t, (err == nil), err)
+	teardownDirs([]string{testRootDir})
 }
 
 func TestGetDescriptorByPath(t *testing.T) {
 	var err error
-	err = setupDirs([]string{testRootDir})
-	assert(t, (err == nil), err)
+	setupDirs([]string{testRootDir})
 
-	w, err := fsevents.NewWatcher(testRootDir, fsevents.AllEvents)
+	w, err := fsevents.NewWatcher()
 	assert(t, (err == nil), err)
 	assert(t, (w != nil), fmt.Errorf("NewWatcher should have returned non-nil Watcher"))
-	assert(t, (len(w.ListDescriptors()) == 1), fmt.Errorf("ListDescriptors should have returned 1"))
 
 	w.AddDescriptor(testRootDir, fsevents.AllEvents)
 
@@ -403,8 +389,7 @@ func TestGetDescriptorByPath(t *testing.T) {
 	notThere := w.GetDescriptorByPath("not_there")
 	assert(t, (notThere == nil), fmt.Errorf("GetDescriptorByPath should have returned non-nil descriptor"))
 
-	err = teardownDirs([]string{testRootDir})
-	assert(t, (err == nil), err)
+	teardownDirs([]string{testRootDir})
 }
 
 type fileCreatedHandler struct {
@@ -428,10 +413,9 @@ func TestUnregisterEventHandler(t *testing.T) {
 	var w *fsevents.Watcher
 	var err error
 
-	err = setupDirs([]string{testRootDir})
-	assert(t, (err == nil), err)
+	setupDirs([]string{testRootDir})
 
-	w, err = fsevents.NewWatcher(testRootDir, fsevents.AllEvents)
+	w, err = fsevents.NewWatcher()
 	assert(t, (w != nil), fmt.Errorf("NewWatcher should have returned non-nil Watcher"))
 	assert(t, (err == nil), err)
 
@@ -450,18 +434,16 @@ func TestUnregisterEventHandler(t *testing.T) {
 	err = w.UnregisterEventHandler(fsevents.FileCreatedEvent)
 	assert(t, (err == nil), err)
 
-	err = teardownDirs([]string{testRootDir})
-	assert(t, (err == nil), err)
+	teardownDirs([]string{testRootDir})
 }
 
 func TestRegisterEventHandler(t *testing.T) {
 	var w *fsevents.Watcher
 	var err error
 
-	err = setupDirs([]string{testRootDir})
-	assert(t, (err == nil), err)
+	setupDirs([]string{testRootDir})
 
-	w, err = fsevents.NewWatcher(testRootDir, fsevents.AllEvents)
+	w, err = fsevents.NewWatcher()
 	assert(t, (w != nil), fmt.Errorf("NewWatcher should have returned non-nil Watcher"))
 	assert(t, (err == nil), err)
 
@@ -473,6 +455,5 @@ func TestRegisterEventHandler(t *testing.T) {
 	err = w.RegisterEventHandler(handle)
 	assert(t, (err != nil), err)
 
-	err = teardownDirs([]string{testRootDir})
-	assert(t, (err == nil), err)
+	teardownDirs([]string{testRootDir})
 }

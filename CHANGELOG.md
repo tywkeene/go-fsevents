@@ -154,3 +154,10 @@ Make UnregisterEventHandle return an error if we try to remove a handler that do
 ## Thu 12 Sep 2019 12:42:12 PM MDT Version: 0.0.31
 
 Added support for go modules
+
+## Tue 17 Sep 2019 03:28:33 PM MDT Version: 0.1.0
+
+Removed the unused 'RootPath' field from fsevents.Watcher
+Remove code adding a redundant watch descriptor for the argument RootPath to NewWatcher() using the argument Mask
+Changed the function signature of NewWatcher() to accept no arguments
+

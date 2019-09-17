@@ -24,7 +24,9 @@ func (h *DirectoryCreatedHandle) Handle(w *fsevents.Watcher, event *fsevents.FsE
 		return err
 	}
 
-	d.Start()
+	if err := d.Start(); err != nil {
+		return err
+	}
 	log.Printf("Started watch on %q", event.Path)
 	return nil
 }
@@ -48,7 +50,12 @@ func main() {
 	var watchDir string = os.Args[1]
 	var mask uint32 = fsevents.DirCreatedEvent
 
-	w, err := fsevents.NewWatcher(watchDir, mask)
+	w, err := fsevents.NewWatcher()
+	if err != nil {
+		panic(err)
+	}
+
+	_, err = w.AddDescriptor(watchDir, mask)
 	if err != nil {
 		panic(err)
 	}
