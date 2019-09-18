@@ -379,7 +379,7 @@ func NewWatcher() (*Watcher, error) {
 		Errors:            make(chan error),
 	}
 
-	return w, err
+	return w, nil
 }
 
 // GetRunningDescriptors returns the count of currently running or Start()'d descriptors for this watcher.
