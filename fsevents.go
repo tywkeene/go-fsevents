@@ -345,6 +345,15 @@ func (w *Watcher) RecursiveAdd(rootPath string, mask uint32) error {
 		return err
 	}
 
+	rootDirDesc, err := w.AddDescriptor(rootPath, mask)
+	if err != nil {
+		return err
+	}
+
+	if err := rootDirDesc.Start(); err != nil {
+		return err
+	}
+
 	for _, child := range dirStat {
 		if child.IsDir() == true {
 			childPath := path.Clean(path.Join(rootPath, child.Name()))
