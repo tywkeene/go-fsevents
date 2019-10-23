@@ -1,5 +1,5 @@
-// Package fsevents provides routines for monitoring filesystem events
-// on a Linux system via the inotify subsystem recursively.
+// Package fsevents provides routines for recursively monitoring
+// filesystem events on a Linux system using the inotify kernel subsystem.
 package fsevents
 
 // #include <unistd.h>
