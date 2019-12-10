@@ -5,12 +5,6 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)  
 [![Go Report Card](https://goreportcard.com/badge/github.com/tywkeene/go-fsevents)](https://goreportcard.com/report/github.com/tywkeene/go-fsevents)
 
-## Survey
-
-To help me gauge the usage and needs of everyone using go-fsevents, I'm doing a short survey to gain insight into how go-fsevents is being used, who is using it, and how I can improve it. I greatly appreciate your participation.
-
-[Survey Here](https://forms.gle/gTFgqHXRUkKfzV639)
-
 # About
 
 Recursive filesystem event watcher using inotify in golang
