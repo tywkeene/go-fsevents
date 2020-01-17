@@ -1,21 +1,21 @@
-all: handles-example loop-example
+all: docker-test
 
 clean:
 	rm -rf ./bin
 	rm -f cover.*
 	rm -rf ./test ./test2
 
-loop-example:
-	mkdir -p bin
-	GOOS=linux GOARCH=amd64 CGO_ENABLED=1 go build -o ./bin/example-loop -v ./examples/loop
+handlers-example:
+	docker build -t fsevents-handlers:latest -f docker/Dockerfile.handlers .
+	docker run --rm --name fsevents-handlers fsevents-handlers:latest
 
-handles-example:
-	mkdir -p bin
-	GOOS=linux GOARCH=amd64 CGO_ENABLED=1 go build -o ./bin/example-handlers -v ./examples/handlers
+loops-example:
+	docker build -t fsevents-loops:latest -f docker/Dockerfile.loop .
+	docker run --rm --name fsevents-loops fsevents-loops:latest
 
 docker-test:
-	docker build -t go-fsevents:test -f Dockerfile.tests .
-	docker run --rm go-fsevents:test
+	docker build -t go-fsevents:test -f docker/Dockerfile.tests .
+	docker run --rm --name fsevents-test go-fsevents:test
 
 test-cover:
 	go test -race -coverprofile cover.out ./...
