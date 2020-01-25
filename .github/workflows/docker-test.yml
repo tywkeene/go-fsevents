@@ -1,3 +1,6 @@
+on:
+  push:
+    branches: [develop]
 name: 'docker-test'
 description: 'Run docker test'
 runs:
