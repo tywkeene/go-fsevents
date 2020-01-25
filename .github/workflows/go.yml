@@ -2,8 +2,8 @@ name: Go
 on: [push]
 jobs:
 
-  build:
-    name: Build
+  test:
+    name: test
     runs-on: ubuntu-latest
     steps:
 
@@ -18,11 +18,7 @@ jobs:
 
     - name: Get dependencies
       run: |
-        go get -v -t -d ./...
-        if [ -f Gopkg.toml ]; then
-            curl https://raw.githubusercontent.com/golang/dep/master/install.sh | sh
-            dep ensure
-        fi
+        go mod download
 
-    - name: Build
-      run: go build -v .
+    - name: Go test
+      run: go test ./...
