@@ -21,4 +21,5 @@ jobs:
         go mod download
 
     - name: Go test
-      run: go test -v ./...
+      run: go test ./...
+
