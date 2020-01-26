@@ -4,8 +4,10 @@ import (
 	"fmt"
 	"math/rand"
 	"os"
+	"path/filepath"
 	"reflect"
 	"runtime"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -456,4 +458,108 @@ func TestRegisterEventHandler(t *testing.T) {
 	assert(t, (err != nil), err)
 
 	teardownDirs([]string{testRootDir})
+}
+
+func exists(path string) bool {
+	_, err := os.Stat(path)
+	if err == nil {
+		return true
+	}
+	if os.IsNotExist(err) {
+		return false
+	}
+	return true
+}
+
+func setup(rootDir string) error {
+	if !exists(rootDir) {
+		if err := os.Mkdir(rootDir, 0644); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+var eventCounter uint32 = 0
+
+type DirectoryCreatedHandle struct {
+	Mask uint32
+}
+
+var letterRunes = []rune("abcdefghijklmnopqrstuvwxyz1234567890")
+
+func (h *DirectoryCreatedHandle) Handle(w *fsevents.Watcher, event *fsevents.FsEvent) error {
+	atomic.AddUint32(&eventCounter, 1)
+	d, err := w.AddDescriptor(event.Path, h.GetMask())
+	if err != nil {
+		return err
+	}
+	return d.Start()
+}
+
+func (h *DirectoryCreatedHandle) GetMask() uint32 {
+	return h.Mask
+}
+
+func (h *DirectoryCreatedHandle) Check(event *fsevents.FsEvent) bool {
+	return event.IsDirCreated()
+}
+
+func randomStr(n int) string {
+	var letterRunes = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
+	b := make([]rune, n)
+	for i := range b {
+		b[i] = letterRunes[rand.Intn(len(letterRunes))]
+	}
+	return string(b)
+}
+
+func assertBench(b *testing.B, compare bool, err error) {
+	if compare == false {
+		_, _, line, _ := runtime.Caller(1)
+		b.Logf("Comparison @ [line %d] failed\n", line)
+		if err != nil {
+			b.Fatal("Error returned:", err)
+		} else {
+			b.Fatal("Exiting")
+		}
+	}
+}
+
+func BenchmarkWatchDir(b *testing.B) {
+	const testDir = "./test"
+	var mask uint32 = fsevents.DirCreatedEvent
+	rand.Seed(time.Now().UnixNano())
+
+	if err := setup(testDir); err != nil {
+		b.Fatal(err)
+	}
+
+	w, err := fsevents.NewWatcher()
+	if err != nil {
+		b.Fatal(err)
+	}
+
+	_, err = w.AddDescriptor(testDir, mask)
+	if err != nil {
+		b.Fatal(err)
+	}
+
+	w.RegisterEventHandler(&DirectoryCreatedHandle{Mask: mask})
+	w.StartAll()
+	go w.WatchAndHandle()
+
+	var expectedEventCount uint32 = 100000
+	var i uint32
+	for i = 0; i < expectedEventCount; i++ {
+		dirPath := filepath.Join(testDir, randomStr(8))
+		if err := os.Mkdir(dirPath, 0644); err != nil {
+			b.Fatal("Mkdir:", err)
+		}
+	}
+
+	assertBench(b, (atomic.LoadUint32(&eventCounter) == expectedEventCount),
+		fmt.Errorf("Expected %d events, got %d\n", expectedEventCount, eventCounter))
+	assertBench(b, (w.EventCount == uint32(expectedEventCount)),
+		fmt.Errorf("Expected w.EventCount == %d events, got %d\n", expectedEventCount, w.EventCount))
 }

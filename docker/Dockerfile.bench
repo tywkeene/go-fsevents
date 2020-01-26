@@ -1,0 +1,4 @@
+FROM fsevents-docker-builder AS bench
+RUN mkdir /bench-data
+VOLUME /bench-data
+CMD go test -v -run=BenchmarkWatchDir -bench=. -benchmem -memprofile /bench-data/mem-prof.out -cpuprofile /bench-data/cpu-prof.out
