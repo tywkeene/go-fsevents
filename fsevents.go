@@ -302,7 +302,7 @@ func (w *Watcher) ListDescriptors() []string {
 	list := make([]string, 0)
 	w.Lock()
 	defer w.Unlock()
-	for path, _ := range w.Descriptors {
+	for path := range w.Descriptors {
 		list = append(list, path)
 	}
 	return list
