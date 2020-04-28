@@ -466,11 +466,11 @@ func (w *Watcher) GetEventCount() uint32 {
 
 // ReadSingleEvent reads and returns a single event from the watch descriptor.
 func (w *Watcher) ReadSingleEvent() (*FsEvent, error) {
-	var buffer [unix.SizeofInotifyEvent + unix.PathMax]byte
+	var buffer [unix.SizeofInotifyEvent + unix.PathMax + 1]byte
 
 	bytesRead, err := C.read(C.int(w.InotifyDescriptor),
 		unsafe.Pointer(&buffer),
-		C.ulong(unix.SizeofInotifyEvent+unix.PathMax))
+		C.ulong(unix.SizeofInotifyEvent+unix.PathMax+1))
 
 	if bytesRead < unix.SizeofInotifyEvent {
 		return nil, ErrIncompleteRead
