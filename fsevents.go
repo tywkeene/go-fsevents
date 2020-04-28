@@ -466,10 +466,11 @@ func (w *Watcher) ReadSingleEvent() (*FsEvent, error) {
 	var buffer [unix.SizeofInotifyEvent + unix.PathMax + 1]byte
 
 	bytesRead, err := unix.Read(w.InotifyDescriptor, buffer[:])
+	if err != nil {
+		return nil, fmt.Errorf("%s: %s", ErrReadError.Error(), err)
+	}
 	if bytesRead < unix.SizeofInotifyEvent {
 		return nil, ErrIncompleteRead
-	} else if err != nil {
-		return nil, fmt.Errorf("%s: %s", ErrReadError.Error(), err)
 	}
 
 	rawEvent := (*unix.InotifyEvent)(unsafe.Pointer(&buffer))
