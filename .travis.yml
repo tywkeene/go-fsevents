@@ -6,12 +6,14 @@ notifications:
   email: false
 
 go:
-- "1.12"
-- "1.13"
+  - "1.13.x"
+  - "1.14.x"
+  - "tip"
 
-before_install:
-  - go get -t -v ./...
-  
+matrix:
+  allow_failures:
+    - go: tip
+
 script:
   - go vet .
   - go test -v -race -coverprofile=coverage.txt -covermode=atomic ./...
