@@ -177,7 +177,7 @@ func (e *FsEvent) IsDirEvent() bool {
 // Also be sure to add the RootDelete flag to your watched events when
 // initializing fsevents
 func (e *FsEvent) IsRootDeletion(rootPath string) bool {
-	return (CheckMask(RootDelete, e.RawEvent.Mask) == true) && (rootPath == e.Path)
+	return CheckMask(RootDelete, e.RawEvent.Mask) && (rootPath == e.Path)
 }
 
 // IsRootMoved returns true if the event contains the inotify flag IN_MOVE_SELF
@@ -186,7 +186,7 @@ func (e *FsEvent) IsRootDeletion(rootPath string) bool {
 // to you at all, and depends on how you deal with paths in your program.
 // Still, you should check for this event before doing anything else.
 func (e *FsEvent) IsRootMoved(rootPath string) bool {
-	return (CheckMask(RootMove, e.RawEvent.Mask) == true) && (rootPath == e.Path)
+	return CheckMask(RootMove, e.RawEvent.Mask) && (rootPath == e.Path)
 }
 
 // Custom directory events
@@ -194,23 +194,26 @@ func (e *FsEvent) IsRootMoved(rootPath string) bool {
 // IsDirChanged returns true if the event describes a directory that
 // was closed with write permissions, modified, or its attributes changed
 func (e *FsEvent) IsDirChanged() bool {
-	return ((CheckMask(CloseWrite, e.RawEvent.Mask) == true) && (e.IsDirEvent() == true)) ||
-		((CheckMask(Modified, e.RawEvent.Mask) == true) && (e.IsDirEvent() == true)) ||
-		((CheckMask(AttrChange, e.RawEvent.Mask) == true) && (e.IsDirEvent() == true))
+	return e.IsDirEvent() &&
+		(CheckMask(CloseWrite, e.RawEvent.Mask) ||
+			CheckMask(Modified, e.RawEvent.Mask) ||
+			CheckMask(AttrChange, e.RawEvent.Mask))
 }
 
 // IsDirCreated returns true if the event describes a directory created
 // within the root watch, or moved into the root watch directory
 func (e *FsEvent) IsDirCreated() bool {
-	return ((CheckMask(Create, e.RawEvent.Mask) == true) && (e.IsDirEvent() == true)) ||
-		((CheckMask(MovedTo, e.RawEvent.Mask) == true) && (e.IsDirEvent() == true))
+	return e.IsDirEvent() &&
+		(CheckMask(Create, e.RawEvent.Mask) ||
+			CheckMask(MovedTo, e.RawEvent.Mask))
 }
 
 // IsDirRemoved returns true if the event describes a directory that was
 //deleted or moved out of the root watch directory
 func (e *FsEvent) IsDirRemoved() bool {
-	return ((CheckMask(Delete, e.RawEvent.Mask) == true) && (e.IsDirEvent() == true)) ||
-		((CheckMask(MovedFrom, e.RawEvent.Mask) == true) && (e.IsDirEvent() == true))
+	return e.IsDirEvent() &&
+		(CheckMask(Delete, e.RawEvent.Mask) ||
+			CheckMask(MovedFrom, e.RawEvent.Mask))
 }
 
 // Custom file events
@@ -218,23 +221,26 @@ func (e *FsEvent) IsDirRemoved() bool {
 // IsFileCreated returns true if the event describes a file that was moved into,
 // or created within the root watch directory
 func (e *FsEvent) IsFileCreated() bool {
-	return (((CheckMask(Create, e.RawEvent.Mask) == true) && (e.IsDirEvent() == false)) ||
-		((CheckMask(MovedTo, e.RawEvent.Mask) == true) && (e.IsDirEvent() == false)))
+	return !e.IsDirEvent() &&
+		(CheckMask(Create, e.RawEvent.Mask) ||
+			CheckMask(MovedTo, e.RawEvent.Mask))
 }
 
 // IsFileRemoved returns true if the event describes a file
 // was deleted or moved out of the root watch directory
 func (e *FsEvent) IsFileRemoved() bool {
-	return ((CheckMask(Delete, e.RawEvent.Mask) == true) && (e.IsDirEvent() == false) ||
-		((CheckMask(MovedFrom, e.RawEvent.Mask) == true) && (e.IsDirEvent() == false)))
+	return !e.IsDirEvent() &&
+		(CheckMask(Delete, e.RawEvent.Mask) ||
+			CheckMask(MovedFrom, e.RawEvent.Mask))
 }
 
 // IsFileChanged returns true if the event describes a file that was
 // closed with write permissions, modified, or its attributes changed
 func (e *FsEvent) IsFileChanged() bool {
-	return ((CheckMask(CloseWrite, e.RawEvent.Mask) == true) && (e.IsDirEvent() == false)) ||
-		((CheckMask(Modified, e.RawEvent.Mask) == true) && (e.IsDirEvent() == false)) ||
-		((CheckMask(AttrChange, e.RawEvent.Mask) == true) && (e.IsDirEvent() == false))
+	return !e.IsDirEvent() &&
+		(CheckMask(CloseWrite, e.RawEvent.Mask) ||
+			CheckMask(Modified, e.RawEvent.Mask) ||
+			CheckMask(AttrChange, e.RawEvent.Mask))
 }
 
 func newWatchDescriptor(dirPath string, mask uint32, inotifyDescriptor int) *WatchDescriptor {
@@ -249,7 +255,7 @@ func newWatchDescriptor(dirPath string, mask uint32, inotifyDescriptor int) *Wat
 // Start starts a WatchDescriptor inotify event watcher. If the descriptor is already running Start returns ErrDescRunning
 func (d *WatchDescriptor) Start() error {
 	var err error
-	if d.Running == true {
+	if d.Running {
 		return ErrDescRunning
 	}
 	d.WatchDescriptor, err = unix.InotifyAddWatch(*d.InotifyDescriptor, d.Path, d.Mask)
@@ -263,7 +269,7 @@ func (d *WatchDescriptor) Start() error {
 
 // Stop stops a running watch descriptor. If the descriptor is not running Stop returns ErrDescNotRunning
 func (d *WatchDescriptor) Stop() error {
-	if d.Running == false {
+	if !d.Running {
 		return ErrDescNotRunning
 	}
 	_, err := unix.InotifyRmWatch(*d.InotifyDescriptor, uint32(d.WatchDescriptor))
@@ -305,13 +311,13 @@ func (w *Watcher) ListDescriptors() []string {
 // RemoveDescriptor removes the WatchDescriptor with the path matching path
 // from the watcher, and stops the inotify watcher
 func (w *Watcher) RemoveDescriptor(path string) error {
-	if w.DescriptorExists(path) == false {
+	if !w.DescriptorExists(path) {
 		return ErrDescNotFound
 	}
 	w.Lock()
 	defer w.Unlock()
 	descriptor := w.Descriptors[path]
-	if descriptor.DoesPathExist() == true {
+	if descriptor.DoesPathExist() {
 		if err := descriptor.Stop(); err != nil {
 			return err
 		}
@@ -325,7 +331,7 @@ func (w *Watcher) AddDescriptor(dirPath string, mask uint32) (*WatchDescriptor, 
 	if _, err := os.Stat(dirPath); os.IsNotExist(err) {
 		return nil, fmt.Errorf("%s: %s", ErrDescNotCreated, "directory does not exist")
 	}
-	if w.DescriptorExists(dirPath) == true {
+	if w.DescriptorExists(dirPath) {
 		return nil, ErrDescAlreadyExists
 	}
 
@@ -355,7 +361,7 @@ func (w *Watcher) RecursiveAdd(rootPath string, mask uint32) error {
 	}
 
 	for _, child := range dirStat {
-		if child.IsDir() == true {
+		if child.IsDir() {
 			childPath := path.Clean(path.Join(rootPath, child.Name()))
 			if err := w.RecursiveAdd(childPath, mask); err != nil {
 				return fmt.Errorf("could not add recurisve-descriptor for path %q: %s", childPath, err.Error())
@@ -397,7 +403,7 @@ func (w *Watcher) GetRunningDescriptors() int32 {
 	defer w.Unlock()
 	var count int32
 	for _, d := range w.Descriptors {
-		if d.Running == true {
+		if d.Running {
 			count++
 		}
 	}
@@ -421,7 +427,7 @@ func (w *Watcher) StopAll() error {
 	w.Lock()
 	defer w.Unlock()
 	for _, d := range w.Descriptors {
-		if d.Running == true {
+		if d.Running {
 			if err := d.Stop(); err != nil {
 				return err
 			}
@@ -446,7 +452,7 @@ func (w *Watcher) GetDescriptorByWatch(wd int) *WatchDescriptor {
 // GetDescriptorByPath searches Watcher w for a watch descriptor.
 // Searches by WatchDescriptor's path
 func (w *Watcher) GetDescriptorByPath(watchPath string) *WatchDescriptor {
-	if w.DescriptorExists(watchPath) == true {
+	if w.DescriptorExists(watchPath) {
 		w.Lock()
 		d := w.Descriptors[watchPath]
 		w.Unlock()
@@ -556,7 +562,7 @@ func (w *Watcher) getEventHandle(event *FsEvent) EventHandler {
 	w.Lock()
 	defer w.Unlock()
 	for _, handle := range w.eventHandlers {
-		if handle.Check(event) == true {
+		if handle.Check(event) {
 			return handle
 		}
 	}
