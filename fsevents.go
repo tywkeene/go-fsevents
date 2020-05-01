@@ -2,9 +2,6 @@
 // filesystem events on a Linux system using the inotify kernel subsystem.
 package fsevents
 
-// #include <unistd.h>
-import "C"
-
 import (
 	"errors"
 	"fmt"
@@ -472,16 +469,14 @@ func (w *Watcher) GetEventCount() uint32 {
 
 // ReadSingleEvent reads and returns a single event from the watch descriptor.
 func (w *Watcher) ReadSingleEvent() (*FsEvent, error) {
-	var buffer [unix.SizeofInotifyEvent + unix.PathMax]byte
+	var buffer [unix.SizeofInotifyEvent + unix.PathMax + 1]byte
 
-	bytesRead, err := C.read(C.int(w.InotifyDescriptor),
-		unsafe.Pointer(&buffer),
-		C.ulong(unix.SizeofInotifyEvent+unix.PathMax))
-
+	bytesRead, err := unix.Read(w.InotifyDescriptor, buffer[:])
+	if err != nil {
+		return nil, fmt.Errorf("%s: %s", ErrReadError.Error(), err)
+	}
 	if bytesRead < unix.SizeofInotifyEvent {
 		return nil, ErrIncompleteRead
-	} else if err != nil {
-		return nil, fmt.Errorf("%s: %s", ErrReadError.Error(), err)
 	}
 
 	rawEvent := (*unix.InotifyEvent)(unsafe.Pointer(&buffer))
