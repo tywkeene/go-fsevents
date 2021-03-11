@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math/rand"
 	"os"
+	"path"
 	"reflect"
 	"runtime"
 	"testing"
@@ -456,4 +457,29 @@ func TestRegisterEventHandler(t *testing.T) {
 	assert(t, (err != nil), err)
 
 	teardownDirs([]string{testRootDir})
+}
+
+func TestRecursiveAdd(t *testing.T) {
+	var w *fsevents.Watcher
+	var err error
+
+	testDirs := []string{
+		testRootDir,
+		path.Join(testRootDir, "a"),
+		path.Join(testRootDir, "a/aa"),
+		path.Join(testRootDir, "b"),
+		path.Join(testRootDir, "b/bb"),
+	}
+
+	setupDirs(testDirs)
+
+	w, err = fsevents.NewWatcher()
+	assert(t, (w != nil), fmt.Errorf("NewWatcher should have returned non-nil Watcher"))
+	assert(t, (err == nil), err)
+
+	err = w.RecursiveAdd(testRootDir, fsevents.AllEvents)
+	assert(t, (err == nil), err)
+	assert(t, (int(w.GetRunningDescriptors()) == len(testDirs)), fmt.Errorf("Count of running descriptors is not equal to number of directories"))
+
+	teardownDirs(testDirs)
 }
