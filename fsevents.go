@@ -363,13 +363,6 @@ func (w *Watcher) RecursiveAdd(rootPath string, mask uint32) error {
 			if err := w.RecursiveAdd(childPath, mask); err != nil {
 				return fmt.Errorf("could not add recurisve-descriptor for path %q: %s", childPath, err.Error())
 			}
-			d, err := w.AddDescriptor(childPath, mask)
-			if err != nil {
-				return fmt.Errorf("could not add descriptor for path %q: %s", childPath, err.Error())
-			}
-			if err := d.Start(); err != nil {
-				return fmt.Errorf("could not start watch for path %q: %s", childPath, err.Error())
-			}
 		}
 	}
 	return nil
