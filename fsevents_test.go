@@ -483,3 +483,49 @@ func TestRecursiveAdd(t *testing.T) {
 
 	teardownDirs(testDirs)
 }
+
+func TestMultipleEvents(t *testing.T) {
+	var w *fsevents.Watcher
+	var d *fsevents.WatchDescriptor
+	var err error
+
+	testPath := testRootDir + "/multiple-event-test"
+
+	setupDirs([]string{testRootDir})
+
+	err = writeRandomFile(testPath)
+	assert(t, (err == nil), err)
+
+	w, err = fsevents.NewWatcher()
+	assert(t, (w != nil), fmt.Errorf("NewWatcher should have returned non-nil Watcher"))
+	assert(t, (err == nil), err)
+
+	d, err = w.AddDescriptor(testPath, unix.IN_ALL_EVENTS)
+	assert(t, (d != nil), fmt.Errorf("AddDescriptor should have returned a non-nil descriptor"))
+	assert(t, (err == nil), err)
+
+	err = d.Start()
+	assert(t, (err == nil), err)
+
+	err = os.Remove(testPath)
+	assert(t, (err == nil), err)
+
+	// As per inotify(7), an unlink triggers 3 separate events on the
+	// unlinked path: IN_ATTRIB, IN_DELETE_SELF, and IN_IGNORED.  Since
+	// we can't timeout ReadSingleEvent, run it in a goroutine and fail
+	// the test if we don't read those 3 events in a reasonable amount
+	// of time.
+	eventCount := 0
+	go func() {
+		for {
+			event, err := w.ReadSingleEvent()
+			assert(t, (event != nil), err)
+			assert(t, (err == nil), err)
+			eventCount++
+		}
+	}()
+	time.Sleep(1 * time.Millisecond)
+	assert(t, (eventCount == 3), err)
+
+	teardownDirs([]string{testRootDir})
+}
