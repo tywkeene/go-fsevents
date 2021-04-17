@@ -63,6 +63,12 @@ type Watcher struct {
 	sync.Mutex
 	// List of EventHandles that have been registered with this Watcher
 	eventHandlers []EventHandler
+	// Buffer of events received from inotify
+	eventBuffer [unix.SizeofInotifyEvent + unix.PathMax + 1]byte
+	// Length of the event buffer that's been filled by the last read
+	eventBufferLen int
+	// Offset of the next unread event in the event buffer
+	eventBufferOff int
 	// The main inotify descriptor
 	InotifyDescriptor int
 	// Watch descriptors in this watch key: watch path -> value: WatchDescriptor
@@ -462,24 +468,27 @@ func (w *Watcher) GetEventCount() uint32 {
 
 // ReadSingleEvent reads and returns a single event from the watch descriptor.
 func (w *Watcher) ReadSingleEvent() (*FsEvent, error) {
-	var buffer [unix.SizeofInotifyEvent + unix.PathMax + 1]byte
-
-	bytesRead, err := unix.Read(w.InotifyDescriptor, buffer[:])
-	if err != nil {
-		return nil, fmt.Errorf("%s: %s", ErrReadError.Error(), err)
+	if w.eventBufferOff == w.eventBufferLen {
+		bytesRead, err := unix.Read(w.InotifyDescriptor, w.eventBuffer[:])
+		if err != nil {
+			return nil, fmt.Errorf("%s: %s", ErrReadError.Error(), err)
+		}
+		w.eventBufferLen = bytesRead
+		w.eventBufferOff = 0
 	}
-	if bytesRead < unix.SizeofInotifyEvent {
+
+	if w.eventBufferLen-w.eventBufferOff < unix.SizeofInotifyEvent {
 		return nil, ErrIncompleteRead
 	}
 
-	rawEvent := (*unix.InotifyEvent)(unsafe.Pointer(&buffer))
+	rawEvent := (*unix.InotifyEvent)(unsafe.Pointer(&w.eventBuffer[w.eventBufferOff]))
 
 	descriptor := w.GetDescriptorByWatch(int(rawEvent.Wd))
 	if descriptor == nil {
 		return nil, ErrDescForEventNotFound
 	}
 
-	bytes := (*[unix.PathMax]byte)(unsafe.Pointer(&buffer[unix.SizeofInotifyEvent]))
+	bytes := (*[unix.PathMax]byte)(unsafe.Pointer(&w.eventBuffer[w.eventBufferOff+unix.SizeofInotifyEvent]))
 	eventName := strings.TrimRight(string(bytes[0:rawEvent.Len]), "\000")
 	eventPath := path.Clean(path.Join(descriptor.Path, eventName))
 
@@ -492,6 +501,7 @@ func (w *Watcher) ReadSingleEvent() (*FsEvent, error) {
 		Timestamp:  time.Now().UTC(),
 	}
 	w.incrementEventCount()
+	w.eventBufferOff += unix.SizeofInotifyEvent + int(rawEvent.Len)
 	return event, nil
 }
 
